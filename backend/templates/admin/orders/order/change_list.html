@@ -1,0 +1,25 @@
+{% extends "admin/change_list.html" %}
+{% load i18n static %}
+
+{% block content_title %}
+    <h1> Buyurtmalar statistikasi </h1>
+    <div style="display: flex; gap: 20px; background: #f8f8f8; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd;">
+        <div style="flex: 1; text-align: center;">
+            <p style="color: #666; margin: 0;">Jami aylanma</p>
+            <strong style="font-size: 1.5em; color: #264b5d;">{{ summary_data.total_sum|floatformat:0 }} so'm</strong>
+        </div>
+        <div style="flex: 1; text-align: center; border-left: 1px solid #ccc;">
+            <p style="color: #666; margin: 0;">Tizim foydasi (Komissiya)</p>
+            <strong style="font-size: 1.5em; color: #2e7d32;">{{ summary_data.total_commission|floatformat:0 }} so'm</strong>
+        </div>
+        <div style="flex: 1; text-align: center; border-left: 1px solid #ccc;">
+            <p style="color: #666; margin: 0;">Buyurtmalar soni</p>
+            <strong style="font-size: 1.5em; color: #d84315;">{{ summary_data.orders_count }} ta</strong>
+        </div>
+        <div style="flex: 1; text-align: center; border-left: 1px solid #ccc;">
+            <p style="color: #666; margin: 0;">O'rtacha chek</p>
+            <strong style="font-size: 1.5em; color: #1565c0;">{{ summary_data.avg_price|floatformat:0 }} so'm</strong>
+        </div>
+    </div>
+    {{ block.super }}
+{% endblock %}

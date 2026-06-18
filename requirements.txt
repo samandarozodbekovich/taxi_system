@@ -1,0 +1,16 @@
+Django
+djangorestframework
+Pillow
+psycopg2-binary
+channels
+channels-redis
+daphne
+celery
+eventlet
+requests
+python-dotenv
+
+# client_bot
+httpx
+aiogram
+python-dotenv

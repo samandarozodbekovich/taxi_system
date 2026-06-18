@@ -1,0 +1,4 @@
+venv
+backend/.env
+bots/client_bot/.env
+bots/driver_bot/.env

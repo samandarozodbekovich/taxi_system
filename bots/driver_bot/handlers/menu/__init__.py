@@ -1,0 +1,12 @@
+from .show_wallet import show_wallet, router
+from .toggle_status import toggle_status, router
+
+from aiogram import Router
+
+from .show_wallet import router as show_wallet
+from .toggle_status import router as toggle_status
+
+# Barcha routerlarni bitta routerga birlashtiramiz
+router = Router()
+router.include_router(show_wallet)
+router.include_router(toggle_status)

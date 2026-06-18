@@ -1,0 +1,1 @@
+from .get_info_wallet import InfoWalletView

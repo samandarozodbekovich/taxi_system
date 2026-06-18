@@ -1,0 +1,1151 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Taxi TMA{% endblock %}
+
+{% block head_extra %}
+    <style>
+        :root {
+            --yellow: #FFD600;
+            --yellow-dark: #F5C800;
+            --black: #1A1A1A;
+            --gray-100: #F7F7F7;
+            --gray-200: #EFEFEF;
+            --gray-400: #BDBDBD;
+            --gray-600: #757575;
+            --red: #FF3B30;
+            --green: #34C759;
+            --white: #FFFFFF;
+            --panel-radius: 24px;
+            --font-display: 'Unbounded', sans-serif;
+            --font-body: 'Golos Text', sans-serif;
+            --shadow-panel: 0 -8px 40px rgba(0,0,0,0.12);
+            --shadow-btn: 0 4px 20px rgba(255,214,0,0.45);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--black);
+            overflow: hidden;
+            height: 100dvh;
+            position: relative;
+        }
+
+        /* ── MAP ── */
+        #map {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%;
+            z-index: 0;
+        }
+
+        .bottom-sheet {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 999;
+        }
+
+
+
+        /* ── MAP OVERLAY BUTTONS ── */
+        .map-controls {
+            position: absolute;
+            bottom: calc(var(--panel-height, 310px) + 16px);
+            right: 16px;
+            z-index: 500;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .map-ctrl-btn {
+            width: 44px;
+            height: 44px;
+            background: var(--white);
+            border: none;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .map-ctrl-btn:active { transform: scale(0.93); }
+        .map-ctrl-btn svg { width: 20px; height: 20px; }
+
+        .location-search {
+            padding: 12px 16px 8px;
+            display: grid;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .location-field {
+            position: relative;
+        }
+        .location-field input {
+            width: 100%;
+            height: 52px;
+            border-radius: 16px;
+            border: 1px solid #E6E6E6;
+            padding: 0 48px 0 16px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #1A1A1A;
+            outline: none;
+            background: #FFFFFF;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .location-field input:focus {
+            border-color: #FFD600;
+            box-shadow: 0 0 0 4px rgba(255, 214, 0, 0.12);
+        }
+        .field-action {
+            position: absolute;
+            top: 50%;
+            right: 14px;
+            transform: translateY(-50%);
+            border: none;
+            background: transparent;
+            color: #757575;
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .field-action:hover { color: #1A1A1A; }
+        .suggestions {
+            display: none;
+            position: absolute;
+            top: 58px;
+            left: 0;
+            right: 0;
+            z-index: 1001;
+            background: #fff;
+            border: 1px solid #E6E6E6;
+            border-radius: 16px;
+            box-shadow: 0 14px 40px rgba(0,0,0,0.08);
+            max-height: 260px;
+            overflow: auto;
+        }
+        .suggestions li {
+            padding: 12px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #1A1A1A;
+            list-style: none;
+        }
+        .suggestions li:hover {
+            background: #F7F7F7;
+        }
+
+        /* ── BOTTOM PANEL ── */
+        .panel {
+            background: var(--white);
+            border-top-left-radius: var(--panel-radius);
+            border-top-right-radius: var(--panel-radius);
+            box-shadow: var(--shadow-panel);
+            padding: 0 0 max(env(safe-area-inset-bottom), 20px);
+            position: relative;
+            z-index: 999;
+            max-height: 52vh;
+            overflow-y: auto;
+            transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+
+        .location-search {
+            flex-shrink: 0;
+        }
+
+        /* Drag handle */
+        .panel-handle {
+            width: 40px;
+            height: 4px;
+            background: var(--gray-200);
+            border-radius: 2px;
+            margin: 12px auto 0;
+        }
+
+        /* ── STATUS CHIP ── */
+        #status-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px 0;
+            min-height: 36px;
+        }
+
+        .chip-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--gray-400);
+            flex-shrink: 0;
+            transition: background 0.3s;
+        }
+        .chip-dot.searching { background: var(--yellow); animation: pulse-dot 1.2s infinite; }
+        .chip-dot.accepted { background: var(--green); }
+        .chip-dot.canceled { background: var(--red); }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.7); }
+        }
+
+        #info {
+            font-family: var(--font-body);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--gray-600);
+            line-height: 1.4;
+        }
+        #info b { color: var(--black); font-weight: 600; }
+
+        /* ── ROUTE SUMMARY ── */
+        .route-summary {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            padding: 12px 20px 0;
+        }
+
+        .route-point {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .route-label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--gray-400);
+        }
+
+        .route-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--black);
+        }
+
+        .route-divider {
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, var(--yellow) 0%, var(--gray-200) 100%);
+            margin: 0 12px;
+            margin-top: 10px;
+            position: relative;
+        }
+        .route-divider::after {
+            content: '';
+            position: absolute;
+            right: -5px;
+            top: -3px;
+            width: 7px;
+            height: 7px;
+            border-top: 1px solid var(--gray-400);
+            border-right: 1px solid var(--gray-400);
+            transform: rotate(45deg);
+        }
+
+        /* ── PRICE ROW ── */
+        .price-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px 0;
+        }
+
+        .price-amount {
+            font-family: var(--font-display);
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--black);
+            letter-spacing: -0.03em;
+        }
+
+        .price-unit {
+            font-size: 13px;
+            color: var(--gray-600);
+            font-weight: 500;
+            margin-left: 4px;
+            align-self: flex-end;
+            padding-bottom: 3px;
+        }
+
+        .distance-badge {
+            background: var(--gray-100);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--black);
+        }
+
+        /* ── DRIVER CARD ── */
+        #driver-card {
+            display: none;
+            margin: 14px 20px 0;
+            background: var(--gray-100);
+            border-radius: 16px;
+            padding: 14px 16px;
+            flex-direction: row;
+            align-items: center;
+            gap: 12px;
+        }
+        #driver-card.visible { display: flex; }
+
+        .driver-avatar {
+            width: 44px;
+            height: 44px;
+            background: var(--yellow);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .driver-info { flex: 1; }
+        .driver-name { font-size: 15px; font-weight: 600; color: var(--black); }
+        .driver-car { font-size: 12px; color: var(--gray-600); margin-top: 2px; }
+
+        .driver-car-badge {
+            background: var(--white);
+            border-radius: 8px;
+            padding: 5px 10px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--black);
+            letter-spacing: 0.05em;
+            border: 1px solid var(--gray-200);
+        }
+
+        /* ── MAIN BUTTON ── */
+        .btn-wrap { padding: 16px 20px 12px; }
+
+    #mainBtn,
+    #cancelBtn,
+    #reorderBtn {
+        width: 100%;
+        height: 58px;
+        border: none;
+        border-radius: 16px;
+        font-family: var(--font-display);
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.15s, box-shadow 0.2s, background 0.3s;
+    }
+
+    #mainBtn {
+        background: var(--yellow);
+        color: var(--black);
+        box-shadow: var(--shadow-btn);
+    }
+
+    #cancelBtn {
+        background: var(--red);
+        color: var(--white);
+        box-shadow: 0 4px 20px rgba(255,59,48,0.35);
+        margin-top: 12px;
+        display: none;
+    }
+
+    #reorderBtn {
+        background: var(--black);
+        color: var(--white);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        margin-top: 12px;
+        display: none;
+    }
+
+    #mainBtn:active:not(:disabled),
+    #cancelBtn:active:not(:disabled),
+    #reorderBtn:active:not(:disabled) { transform: scale(0.97); }
+    #mainBtn:disabled,
+    #cancelBtn:disabled,
+    #reorderBtn:disabled {
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+        #mainBtn.cancel {
+            background: var(--red);
+            color: var(--white);
+            box-shadow: 0 4px 20px rgba(255,59,48,0.35);
+        }
+
+        /* Shimmer on yellow btn */
+        #mainBtn:not(:disabled):not(.cancel)::after {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 60%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: shimmer 2.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { left: -100%; }
+            50%, 100% { left: 160%; }
+        }
+
+        /* Spinner inside button */
+        .btn-spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2.5px solid rgba(0,0,0,0.2);
+            border-top-color: var(--black);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        #mainBtn.loading .btn-spinner { display: block; }
+        #mainBtn.loading .btn-label { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+    </style>
+{% endblock %}
+
+{% block body_content %}
+<div id="map"></div>
+
+<!-- Map floating controls -->
+<div class="map-controls" id="mapControls">
+    <button class="map-ctrl-btn" onclick="locateUser()" title="My location">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+            <circle cx="12" cy="12" r="8" opacity="0.25"/>
+        </svg>
+    </button>
+</div>
+
+<div class="bottom-sheet" id="bottomSheet">
+    <div class="location-search">
+    <div class="location-field">
+        <input id="pickupInput" type="text" placeholder="Qayerdan boshlaymiz?" autocomplete="off"
+               oninput="onSearchInput('pickup')" onfocus="onSearchInput('pickup')">
+        <button class="field-action" type="button" onclick="clearLocation('pickup')">×</button>
+        <ul class="suggestions" id="pickupSuggestions"></ul>
+    </div>
+    <div class="location-field">
+        <input id="destinationInput" type="text" placeholder="Qayerga boramiz?" autocomplete="off"
+               oninput="onSearchInput('destination')" onfocus="onSearchInput('destination')">
+        <button class="field-action" type="button" onclick="clearLocation('destination')">×</button>
+        <ul class="suggestions" id="destinationSuggestions"></ul>
+    </div>
+</div>
+
+<!-- Bottom panel -->
+<div class="panel" id="panel">
+    <div class="panel-handle"></div>
+
+        <!-- Status row -->
+        <div id="status-chip">
+            <div class="chip-dot" id="chipDot"></div>
+            <div id="info">Yo'nalishni belgilang...</div>
+        </div>
+
+        <!-- Route summary (shown after route found) -->
+        <div class="route-summary" id="routeSummary" style="display:none;">
+            <div class="route-point">
+                <span class="route-label">Manba</span>
+                <span class="route-value" id="routeFrom">A nuqta</span>
+            </div>
+            <div class="route-divider"></div>
+            <div class="route-point">
+                <span class="route-label">Manzil</span>
+                <span class="route-value" id="routeTo">B nuqta</span>
+            </div>
+        </div>
+
+        <!-- Price row (shown after route found) -->
+        <div class="price-row" id="priceRow" style="display:none;">
+            <div style="display:flex;align-items:baseline;">
+                <span class="price-amount" id="priceAmount">0</span>
+                <span class="price-unit">so'm</span>
+            </div>
+            <div class="distance-badge" id="distanceBadge">— km</div>
+        </div>
+
+        <!-- Driver card (shown after ACCEPTED) -->
+        <div id="driver-card">
+            <div class="driver-avatar">🧑‍✈️</div>
+            <div class="driver-info">
+                <div class="driver-name" id="driverName">—</div>
+                <div class="driver-car" id="driverCar">—</div>
+            </div>
+            <div class="driver-car-badge" id="driverPlate">—</div>
+        </div>
+
+        <!-- CTA button -->
+        <div class="btn-wrap">
+            <button id="mainBtn" onclick="createOrder()">
+                <div class="btn-spinner"></div>
+                <span class="btn-label">Taxi chaqirish</span>
+            </button>
+            <button id="cancelBtn" onclick="cancelOrder()">Buyurtmani bekor qilish</button>
+            <button id="reorderBtn" onclick="createOrder()">Buyurtma berish</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    var map;
+    var currentRoute = null;
+    var startPlacemark = null;
+    var endPlacemark = null;
+    var currentDistance = 0;
+    var currentGeometry = null;
+    var currentOrderId = null;
+    var currentOrderStatus = null;
+    var startAddress = '';
+    var endAddress = '';
+
+    function initMap() {
+        map = new ymaps.Map('map', {
+            center: [41.277, 69.286],
+            zoom: 13,
+            controls: ['zoomControl', 'typeSelector']
+        }, {
+            suppressMapOpenBlock: true
+        });
+
+        map.events.add('click', function(e) {
+            var coords = e.get('coords');
+            if (!startPlacemark) {
+                setPoint('start', coords);
+                document.getElementById('info').innerText = 'Manzilni tanlang';
+                return;
+            }
+            if (!endPlacemark) {
+                setPoint('end', coords);
+                buildRoute();
+                return;
+            }
+            resetRoute(coords);
+        });
+
+        document.getElementById('info').innerText = 'Xaritaga bosib boshlang‘ich va manzilni belgilang';
+    }
+
+    function setPoint(type, coords) {
+        var placemark = new ymaps.Placemark(coords, {
+            hintContent: type === 'start' ? 'Boshlang‘ich' : 'Manzil',
+            balloonContent: type === 'start' ? 'Boshlang‘ich nuqta' : 'Manzil nuqta',
+            iconCaption: type === 'start' ? 'A' : 'B'
+        }, {
+            preset: 'islands#icon',
+            iconColor: type === 'start' ? '#FFD600' : '#1A1A1A',
+            draggable: true
+        });
+
+        placemark.events.add('dragend', function() {
+            var newCoords = placemark.geometry.getCoordinates();
+            if (type === 'start') startAddress = '';
+            else endAddress = '';
+            reverseGeocode(newCoords, function(address) {
+                if (type === 'start') {
+                    startAddress = address;
+                    document.getElementById('pickupInput').value = address || '';
+                } else {
+                    endAddress = address;
+                    document.getElementById('destinationInput').value = address || '';
+                }
+                if (currentRoute) buildRoute();
+            });
+            if (currentRoute) buildRoute();
+        });
+
+        if (type === 'start') {
+            if (startPlacemark) map.geoObjects.remove(startPlacemark);
+            startPlacemark = placemark;
+        } else {
+            if (endPlacemark) map.geoObjects.remove(endPlacemark);
+            endPlacemark = placemark;
+        }
+
+        map.geoObjects.add(placemark);
+        reverseGeocode(coords, function(address) {
+            if (type === 'start') {
+                startAddress = address;
+                document.getElementById('pickupInput').value = address || '';
+            } else {
+                endAddress = address;
+                document.getElementById('destinationInput').value = address || '';
+            }
+            updateSummaryLabels();
+        });
+    }
+
+    function onSearchInput(type) {
+        var input = document.getElementById(type === 'pickup' ? 'pickupInput' : 'destinationInput');
+        var query = input.value.trim();
+        var list = document.getElementById(type === 'pickup' ? 'pickupSuggestions' : 'destinationSuggestions');
+
+        if (!query) {
+            list.innerHTML = '';
+            list.style.display = 'none';
+            return;
+        }
+
+        ymaps.suggest(query, { results: 5 }).then(function(results) {
+            list.innerHTML = '';
+            results.forEach(function(item) {
+                var text = item && item.value ? item.value : item;
+                var li = document.createElement('li');
+                li.textContent = text;
+                li.onclick = function() {
+                    chooseSuggestion(type, text);
+                };
+                list.appendChild(li);
+            });
+            list.style.display = results.length ? 'block' : 'none';
+        }, function() {
+            list.innerHTML = '';
+            list.style.display = 'none';
+        });
+    }
+
+    function chooseSuggestion(type, text) {
+        var input = document.getElementById(type === 'pickup' ? 'pickupInput' : 'destinationInput');
+        input.value = text;
+        clearSuggestions(type);
+        setLocationFromText(type, text);
+    }
+
+    function clearSuggestions(type) {
+        var list = document.getElementById(type === 'pickup' ? 'pickupSuggestions' : 'destinationSuggestions');
+        list.innerHTML = '';
+        list.style.display = 'none';
+    }
+
+    function clearLocation(type) {
+        if (type === 'pickup') {
+            document.getElementById('pickupInput').value = '';
+            if (startPlacemark) map.geoObjects.remove(startPlacemark);
+            startPlacemark = null;
+            startAddress = '';
+        } else {
+            document.getElementById('destinationInput').value = '';
+            if (endPlacemark) map.geoObjects.remove(endPlacemark);
+            endPlacemark = null;
+            endAddress = '';
+        }
+        clearSuggestions(type);
+        if (startPlacemark && endPlacemark) buildRoute();
+        else {
+            if (currentRoute) {
+                map.geoObjects.remove(currentRoute);
+                currentRoute = null;
+            }
+            document.getElementById('routeSummary').style.display = 'none';
+            document.getElementById('priceRow').style.display = 'none';
+            document.getElementById('info').innerText = 'Manzilni tanlab yoki xaritaga bosib nuqta qo‘ying';
+        }
+    }
+
+    function setLocationFromText(type, address) {
+        if (type === 'pickup') {
+            startAddress = address;
+            document.getElementById('pickupInput').value = address || '';
+        } else {
+            endAddress = address;
+            document.getElementById('destinationInput').value = address || '';
+        }
+        updateSummaryLabels();
+
+        fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(address) + '&limit=1&accept-language=uz,ru')
+        .then(function(r) { return r.json(); })
+        .then(function(results) {
+            if (!results || !results[0]) return;
+            var coords = [parseFloat(results[0].lat), parseFloat(results[0].lon)];
+            setPoint(type === 'pickup' ? 'start' : 'end', coords);
+            map.setCenter(coords, 13);
+            if (startPlacemark && endPlacemark) buildRoute();
+        })
+        .catch(function(e) { console.warn('Geocode failed:', e); });
+    }
+
+    function resetRoute(coords) {
+        clearRoute();
+        setPoint('start', coords);
+        document.getElementById('info').innerText = 'Manzilni tanlang';
+    }
+
+    function clearRoute() {
+        if (currentRoute) {
+            map.geoObjects.remove(currentRoute);
+            currentRoute = null;
+        }
+        if (startPlacemark) {
+            map.geoObjects.remove(startPlacemark);
+            startPlacemark = null;
+        }
+        if (endPlacemark) {
+            map.geoObjects.remove(endPlacemark);
+            endPlacemark = null;
+        }
+        currentDistance = 0;
+        currentGeometry = null;
+        startAddress = '';
+        endAddress = '';
+        document.getElementById('routeSummary').style.display = 'none';
+        document.getElementById('priceRow').style.display = 'none';
+        document.getElementById('driver-card').classList.remove('visible');
+        document.getElementById('info').innerText = 'Xaritaga bosib boshlang‘ich va manzilni belgilang';
+        setChipState('idle');
+    }
+
+    function buildRoute() {
+        if (!startPlacemark || !endPlacemark) return;
+
+        if (currentRoute) {
+            map.geoObjects.remove(currentRoute);
+            currentRoute = null;
+        }
+
+        var startCoords = startPlacemark.geometry.getCoordinates();
+        var endCoords = endPlacemark.geometry.getCoordinates();
+
+        fetch('/api/orders/route/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                start_lat: startCoords[0],
+                start_lon: startCoords[1],
+                end_lat: endCoords[0],
+                end_lon: endCoords[1]
+            })
+        })
+        .then(function(response) {
+            return response.json().then(function(data) {
+                if (!response.ok) {
+                    throw new Error(data.message || 'Route calculation failed.');
+                }
+                return data;
+            });
+        })
+        .then(function(data) {
+            var coords = data.geometry.coordinates.map(function(c) {
+                return [c[1], c[0]];  // OSRM: [lon,lat] → Yandex: [lat,lon]
+            });
+            
+            currentRoute = new ymaps.GeoObject({
+                geometry: {
+                    type: 'LineString',
+                    coordinates: coords
+                }
+            }, {
+                strokeColor: '#FFD600',
+                strokeWidth: 6,
+                opacity: 0.9
+            });
+            map.geoObjects.add(currentRoute);
+            updateRouteData(data.distance_km, coords);
+        })
+        .catch(function(error) {
+            console.error('Yandex route error:', error);
+            document.getElementById('info').innerText = 'Marshrut topilmadi, boshqa joyni tanlang';
+        });
+    }
+
+    function updateRouteData(distanceKm, coords) {
+        currentDistance = distanceKm;
+        currentGeometry = coords;
+
+        var price = Math.round(currentDistance * 3000 / 500) * 500;
+        document.getElementById('routeSummary').style.display = 'flex';
+        document.getElementById('priceRow').style.display = 'flex';
+        document.getElementById('priceAmount').innerText = price.toLocaleString('uz-UZ');
+        document.getElementById('distanceBadge').innerText = currentDistance.toFixed(1) + ' km';
+        document.getElementById('info').innerText = 'Marshrutingiz tayyor';
+        updateSummaryLabels();
+        setChipState('idle');
+    }
+
+    function updateSummaryLabels() {
+        document.getElementById('routeFrom').innerText = startAddress || 'A nuqta';
+        document.getElementById('routeTo').innerText = endAddress || 'B nuqta';
+    }
+
+    function getPointDistance(fromCoords, toCoords) {
+        var toRad = function(v) { return v * Math.PI / 180; };
+        var lat1 = fromCoords[0];
+        var lon1 = fromCoords[1];
+        var lat2 = toCoords[0];
+        var lon2 = toCoords[1];
+        var dLat = toRad(lat2 - lat1);
+        var dLon = toRad(lon2 - lon1);
+        var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        var R = 6371;
+        return R * c;
+    }
+
+    function reverseGeocode(coords, callback) {
+        var lat = coords[0];
+        var lon = coords[1];
+        fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon + '&accept-language=uz,ru', {
+            headers: { 'Accept-Language': 'uz,ru' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data && data.display_name) {
+                // Shorten: take first 2 parts (street, district)
+                var parts = data.display_name.split(',');
+                callback(parts.slice(0, 2).join(',').trim());
+            } else {
+                callback('Noma\'lum manzil');
+            }
+        })
+        .catch(function() { callback('Noma\'lum manzil'); });
+    }
+
+    function locateUser() {
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(function(pos) {
+            var coords = [pos.coords.latitude, pos.coords.longitude];
+            map.setCenter(coords, 15);
+        });
+    }
+
+    function setChipState(state) {
+        var dot = document.getElementById('chipDot');
+        dot.className = 'chip-dot';
+        if (state === 'searching') dot.classList.add('searching');
+        else if (state === 'accepted') dot.classList.add('accepted');
+        else if (state === 'canceled') dot.classList.add('canceled');
+    }
+
+    function updateButtonState() {
+        var btn = document.getElementById('mainBtn');
+        btn.classList.remove('cancel', 'loading');
+
+        if (!currentOrderId) {
+            btn.disabled = false;
+            btn.querySelector('.btn-label').innerText = 'Taxi chaqirish';
+            btn.style.background = '';
+            btn.style.color = '';
+            btn.onclick = createOrder;
+            return;
+        }
+
+        var reorderBtn = document.getElementById('reorderBtn');
+        var cancelBtn = document.getElementById('cancelBtn');
+        reorderBtn.style.display = 'none';
+        cancelBtn.style.display = 'none';
+
+        if (currentOrderStatus === 'CANCELED') {
+            btn.disabled = true;
+            btn.querySelector('.btn-label').innerText = 'Buyurtma bekor qilindi';
+            setChipState('canceled');
+            document.getElementById('info').innerText = 'Buyurtma bekor qilindi.';
+            reorderBtn.style.display = 'flex';
+            reorderBtn.disabled = false;
+            return;
+        }
+
+        if (currentOrderStatus === 'COMPLETED') {
+            btn.disabled = true;
+            btn.querySelector('.btn-label').innerText = 'Buyurtma yakunlandi';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.querySelector('.btn-label').innerText = 'Haydovchi kutilmoqda...';
+        var cancellableStatuses = ['SEARCHING', 'WAITING'];
+        if (cancellableStatuses.includes(currentOrderStatus)) {
+            cancelBtn.style.display = 'flex';
+            cancelBtn.disabled = false;
+        } else {
+            cancelBtn.style.display = 'none';
+        }
+    }
+
+    async function createOrder() {
+        if (!startPlacemark || !endPlacemark) {
+            alert('Iltimos, xaritadan boshlang‘ich va manzil nuqtalarini tanlang.');
+            return;
+        }
+
+        var tele = window.Telegram.WebApp;
+        var user = tele.initDataUnsafe && tele.initDataUnsafe.user;
+        var telegramId = user ? user.id : 12345;
+
+        var startCoords = startPlacemark.geometry.getCoordinates();
+        var endCoords = endPlacemark.geometry.getCoordinates();
+        var distanceValue = currentDistance;
+        if (!distanceValue) {
+            distanceValue = getPointDistance(startCoords, endCoords);
+        }
+
+        var btn = document.getElementById('mainBtn');
+        btn.classList.add('loading');
+        btn.disabled = true;
+        setChipState('searching');
+        document.getElementById('info').innerText = 'Haydovchi qidirilmoqda...';
+
+        try {
+            var response = await fetch('/api/orders/create/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    client_telegram_id: telegramId,
+                    pickup_latitude: startCoords[0],
+                    pickup_longitude: startCoords[1],
+                    destination_latitude: endCoords[0],
+                    destination_longitude: endCoords[1],
+                    distance: distanceValue,
+                    pickup_address: startAddress || document.getElementById('pickupInput').value || 'A nuqta',
+                    destination_address: endAddress || document.getElementById('destinationInput').value || 'B nuqta'
+                })
+            });
+
+            var data = await response.json();
+            btn.classList.remove('loading');
+
+            if (response.ok && data.id) {
+                    currentOrderId = data.id;
+                    currentOrderStatus = data.status || 'SEARCHING';
+                    
+                    connectToSocket(data.id);
+                    btn.classList.remove('loading');
+                    btn.querySelector('.btn-label').innerText = 'Qidirilmoqda...';
+                    btn.disabled = true;
+
+                    // ✅ Cancel tugmasini ko'rsatamiz
+                    document.getElementById('cancelBtn').style.display = 'flex';
+                    document.getElementById('cancelBtn').disabled = false;
+
+                    setChipState('searching');
+                    document.getElementById('info').innerText = '🔍 Haydovchi qidirilmoqda...';
+                    document.getElementById('reorderBtn').style.display = 'none';
+                }
+                
+            else {
+                alert('Xatolik: ' + JSON.stringify(data));
+                btn.disabled = false;
+                setChipState('idle');
+                document.getElementById('info').innerText = 'Marshrutingiz tayyor';
+            }
+        } catch (error) {
+            console.error('Xato:', error);
+            alert('Server bilan aloqa uzildi!');
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            setChipState('idle');
+        }
+    }
+
+    function connectToSocket(orderId) {
+        var protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        var ws = new WebSocket(protocol + '://' + window.location.host + '/ws/order/' + orderId + '/');
+
+        // ws.onmessage ichida - updateButtonState() ni O'CHIRISH
+        ws.onmessage = function(e) {
+            var response = JSON.parse(e.data);
+            var payload = response.order_data;
+            if (!payload) return;
+
+            currentOrderStatus = payload.status || currentOrderStatus;
+            // ❌ updateButtonState() — BU QATORNI O'CHIRING
+
+            if (payload.status === 'SEARCHING') {
+                setChipState('searching');
+                document.getElementById('info').innerText = '🔍 Haydovchi qidirilmoqda...';
+                document.getElementById('cancelBtn').style.display = 'flex';
+                document.getElementById('cancelBtn').disabled = false;
+                document.getElementById('mainBtn').querySelector('.btn-label').innerText = 'Qidirilmoqda...';
+                document.getElementById('mainBtn').disabled = true;
+            }
+
+            if (payload.status === 'ACCEPTED') {
+                setChipState('accepted');
+                document.getElementById('info').innerText = '🚗 Haydovchi kelmoqda';
+                document.getElementById('driverName').innerText = payload.driver_name || '—';
+                document.getElementById('driverCar').innerText = payload.car_model || '—';
+                document.getElementById('driverPlate').innerText = payload.car_number || '—';
+                document.getElementById('driver-card').classList.add('visible');
+                document.getElementById('cancelBtn').style.display = 'none';
+                document.getElementById('mainBtn').querySelector('.btn-label').innerText = 'Haydovchi kelmoqda...';
+                document.getElementById('mainBtn').disabled = true;
+            }
+
+            if (payload.status === 'WAITING') {
+                setChipState('accepted');
+                document.getElementById('info').innerText = '📍 Haydovchi yetib keldi!';
+                // ✅ WAITING da cancel ko'rsatamiz
+                document.getElementById('cancelBtn').style.display = 'flex';
+                document.getElementById('cancelBtn').disabled = false;
+                document.getElementById('mainBtn').querySelector('.btn-label').innerText = 'Haydovchi kutmoqda...';
+                document.getElementById('mainBtn').disabled = true;
+            }
+
+            if (payload.status === 'IN_PROGRESS') {
+                setChipState('accepted');
+                document.getElementById('info').innerText = '🏁 Safar davom etmoqda...';
+                document.getElementById('cancelBtn').style.display = 'none';
+                document.getElementById('mainBtn').querySelector('.btn-label').innerText = 'Safar davom etmoqda...';
+                document.getElementById('mainBtn').disabled = true;
+            }
+
+            if (payload.status === 'COMPLETED') {
+                setChipState('idle');
+                document.getElementById('info').innerText = '✅ Safar yakunlandi!';
+                document.getElementById('driver-card').classList.remove('visible');
+                document.getElementById('cancelBtn').style.display = 'none';
+                document.getElementById('mainBtn').querySelector('.btn-label').innerText = 'Taxi chaqirish';
+                document.getElementById('mainBtn').disabled = false;
+                document.getElementById('reorderBtn').style.display = 'flex';
+                currentOrderId = null;
+            }
+
+            if (payload.status === 'CANCELED') {
+                setChipState('canceled');
+                document.getElementById('info').innerText = '❌ Buyurtma bekor qilindi';
+                document.getElementById('driver-card').classList.remove('visible');
+                document.getElementById('cancelBtn').style.display = 'none';
+                document.getElementById('reorderBtn').style.display = 'flex';
+                currentOrderId = null;
+            }
+        };
+
+        ws.onclose = function() {
+            console.warn('WebSocket yopildi!');
+        };
+    }
+
+    async function cancelOrder() {
+        if (!currentOrderId) return;
+
+        var tele = window.Telegram.WebApp;
+        var user = tele.initDataUnsafe && tele.initDataUnsafe.user;
+        var telegramId = user ? user.id : 12345;
+        var btn = document.getElementById('mainBtn');
+
+        btn.classList.add('loading');
+        btn.disabled = true;
+
+        try {
+            var response = await fetch('/api/orders/' + currentOrderId + '/cancel/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ client_telegram_id: telegramId })
+            });
+
+            var data = await response.json();
+            btn.classList.remove('loading');
+
+            if (response.ok) {
+                currentOrderStatus = 'CANCELED';
+                updateButtonState();
+                document.getElementById('driver-card').classList.remove('visible');
+            } else {
+                alert('Xatolik: ' + JSON.stringify(data));
+                btn.disabled = false;
+                btn.classList.add('cancel');
+            }
+        } catch (error) {
+            console.error('Xato:', error);
+            alert('Server bilan aloqa uzildi!');
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            btn.classList.add('cancel');
+        }
+    }
+
+    function getCookie(name) {
+        var cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            var cookies = document.cookie.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+                var cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.location-field')) {
+            clearSuggestions('pickup');
+            clearSuggestions('destination');
+        }
+    });
+
+    function updatePanelHeight() {
+        var sheet = document.getElementById('bottomSheet');
+        var h = sheet ? sheet.offsetHeight : 300;
+        document.getElementById('mapControls').style.bottom = (h + 16) + 'px';
+    }
+
+    window.addEventListener('resize', updatePanelHeight);
+    setTimeout(updatePanelHeight, 300);
+
+    ymaps.ready(function() {
+        initMap();
+        checkActiveOrder();
+    });
+
+    async function checkActiveOrder() {
+        try {
+            var tele = window.Telegram && window.Telegram.WebApp;
+            var user = tele && tele.initDataUnsafe && tele.initDataUnsafe.user;
+            var telegramId = user ? user.id : null;
+            if (!telegramId) return;
+
+            var resp = await fetch('/api/orders/active/?client_telegram_id=' + encodeURIComponent(telegramId));
+            if (!resp.ok) return;
+            var payload = await resp.json();
+            if (payload.active) {
+                currentOrderId = payload.id;
+                currentOrderStatus = payload.status || 'SEARCHING';
+                updateButtonState();
+                connectToSocket(currentOrderId);
+
+                if (currentOrderStatus === 'SEARCHING') {
+                    setChipState('searching');
+                    document.getElementById('info').innerText = 'Haydovchi qidirilmoqda...';
+                } else if (currentOrderStatus === 'ACCEPTED') {
+                    setChipState('accepted');
+                    document.getElementById('info').innerText = 'Haydovchi kelmoqda';
+                } else if (currentOrderStatus === 'WAITING') {
+                    setChipState('arrived');
+                    document.getElementById('info').innerText = 'Haydovchi kutmoqda';
+                }
+            }
+        } catch (e) {
+            console.warn('checkActiveOrder xato', e);
+        }
+    }
+</script>
+{% endblock %}
