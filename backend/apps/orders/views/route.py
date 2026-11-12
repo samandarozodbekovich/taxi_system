@@ -1,9 +1,10 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from services.yandex_maps import RoutingService
+from apps.orders.functions import calculate_estimate_price
+from services import get_route
 
 
 class RouteInfoView(APIView):
@@ -11,21 +12,14 @@ class RouteInfoView(APIView):
 
     def post(self, request):
         try:
-            start_lat = float(request.data.get('start_lat'))
-            start_lon = float(request.data.get('start_lon'))
-            end_lat = float(request.data.get('end_lat'))
-            end_lon = float(request.data.get('end_lon'))
+            coords = {key: float(request.data.get(key)) for key in ('start_lat', 'start_lon', 'end_lat', 'end_lon')}
         except (TypeError, ValueError):
             return Response({"status": "error", "message": "Invalid route coordinates."}, status=status.HTTP_400_BAD_REQUEST)
 
-        route_info = RoutingService.get_route(
-            start_lat=start_lat,
-            start_lon=start_lon,
-            end_lat=end_lat,
-            end_lon=end_lon
-        )
-
+        route_info = get_route(**coords)
         if route_info.get("status") != "success":
             return Response(route_info, status=status.HTTP_400_BAD_REQUEST)
 
+        # Price is computed on the server so the price shown to the client matches the order price
+        route_info["estimated_price"] = int(calculate_estimate_price(route_info["distance_km"]))
         return Response(route_info)

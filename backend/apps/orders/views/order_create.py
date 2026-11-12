@@ -1,34 +1,34 @@
+from django.db import IntegrityError
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from ..models import Order
 from ..serializers import OrderCreateSerializer
-from ...drivers.service import notify_drivers_new_order
+from apps.clients.mixins import ClientAuthMixin
 
-class OrderCreateView(APIView):
-    permission_classes = [AllowAny]
+class OrderCreateView(ClientAuthMixin, APIView):
 
     def post(self, request):
-        client_tg_id = request.data.get('client_telegram_id')
-        if not client_tg_id:
-            return Response({"error": "client_telegram_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+        # The client is resolved from signed initData (or the bot secret), not from client_telegram_id in the body
+        client = request.user
+
+        active_order_error = Response(
+            {"error": "You already have an active order. Please complete or cancel it before creating a new one."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+        # Fast path for a clear message. The race (2 concurrent requests) is caught by the database's
+        # one_active_order_per_client constraint - see the IntegrityError below
+        if Order.objects.filter(client=client, status__in=Order.ACTIVE_STATUSES).exists():
+            return active_order_error
         
-        active_order_exists = Order.objects.filter(
-            client__telegram_id=client_tg_id,
-            status__in=['SEARCHING', 'ACCEPTED', 'WAITING', 'IN_PROGRESS']
-        ).exists()
-        
-        if active_order_exists:
-            return Response(
-                {"error": "You already have an active order. Please complete or cancel it before creating a new one."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        serializer = OrderCreateSerializer(data=request.data, context={'request': request})
+        serializer = OrderCreateSerializer(data=request.data, context={'request': request, 'client': client})
         if serializer.is_valid():
-            order = serializer.save()
-            notify_drivers_new_order(order) 
+            try:
+                order = serializer.save()
+            except IntegrityError:
+                return active_order_error
+            # Drivers are notified in Celery (schedule_dispatch) - not awaited here
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)

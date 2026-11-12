@@ -1,42 +1,39 @@
+import logging
 
-from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.views import APIView
 
-from apps.orders.services import OrderService
-from apps.drivers.models import Driver
+from apps.drivers.mixins import DriverAuthMixin
+from apps.orders.functions import (
+    accept_order, cancel_by_driver, complete_order, driver_update_status, reject_by_driver,
+)
 
-class OrderActionView(APIView):
-    permission_classes = [AllowAny]
-    
-    def post(self, request, order_id):  # ← order_id qo'shildi
+logger = logging.getLogger(__name__)
+
+ACTIONS = {
+    "accept": accept_order,
+    "reject": reject_by_driver,
+    "arrive": lambda order_id, driver: driver_update_status(order_id, driver, 'WAITING'),
+    "start": lambda order_id, driver: driver_update_status(order_id, driver, 'IN_PROGRESS'),
+    "complete": complete_order,
+    "cancel": cancel_by_driver,
+}
+
+
+class OrderActionView(DriverAuthMixin, APIView):
+
+    def post(self, request, order_id):
         action = request.data.get('action')
-        driver_id = request.data.get('driver_id')
-
-        if not driver_id:
-            return Response({"error": "driver_id required."}, status=400)
+        if action not in ACTIONS:
+            return Response({"error": "Invalid action."}, status=400)
 
         try:
-            driver = Driver.objects.get(id=driver_id)
-        except Driver.DoesNotExist:
-            return Response({"error": "Driver topilmadi."}, status=404)
-
-        try:
-            if action == "accept":
-                OrderService.accept_order(order_id, driver)
-            elif action == "arrive":
-                OrderService.update_status(order_id, 'WAITING')
-            elif action == "start":
-                OrderService.update_status(order_id, 'IN_PROGRESS')
-            elif action == "complete":
-                OrderService.complete_order(order_id)
-            elif action == "cancel":
-                OrderService.cancel_by_driver(order_id, driver)
-            else:
-                return Response({"error": "Noto'g'ri action."}, status=400)
-
-            return Response({"message": f"Muvaffaqiyatli: {action}"})
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
+            # The driver comes from the token, not from the request body
+            ACTIONS[action](order_id, request.user)
+        except ValueError as e:
+            # Business rule errors (wrong status, another driver's order, etc.)
             return Response({"error": str(e)}, status=400)
+        except Exception:
+            logger.exception("Order action failed: order=%s action=%s", order_id, action)
+            return Response({"error": "Internal server error."}, status=500)
+        return Response({"message": f"Success: {action}"})

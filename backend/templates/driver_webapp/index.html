@@ -25,7 +25,7 @@
         position: relative;
     }
 
-    /* ── LOGIN EKRANI ── */
+    /* ── LOGIN SCREEN ── */
     #loginScreen {
         position: fixed;
         inset: 0;
@@ -407,19 +407,19 @@
 
 {% block content %}
 
-<!-- LOGIN EKRANI -->
+<!-- LOGIN SCREEN -->
 <div id="loginScreen">
     <h1>🚗 Driver Panel</h1>
-    <p>Tizimga kirish uchun<br>driver kodingizni kiriting</p>
+    <p>Enter your driver code<br>to log in</p>
     <input class="login-input" id="loginCode" type="text"
-           placeholder="Driver kodi (DRV-XXXXX)" autocomplete="off">
+           placeholder="Driver code (DRV-XXXXXX)" autocomplete="off">
     <input class="login-input" id="loginPassword" type="password"
-           placeholder="Parol" autocomplete="off">
-    <button class="login-btn" onclick="doLogin()">Kirish</button>
+           placeholder="Password" autocomplete="off">
+    <button class="login-btn" onclick="doLogin()">Log in</button>
     <div class="login-error" id="loginError"></div>
 </div>
 
-<!-- XARITA -->
+<!-- MAP -->
 <div id="map"></div>
 
 <!-- TOP BAR -->
@@ -436,18 +436,18 @@
 
 <!-- WALLET -->
 <div class="wallet-badge" id="walletBadge" style="display:none;">
-    💰 <span id="walletAmount">0</span> so'm
+    💰 <span id="walletAmount">0</span> UZS
 </div>
 
-<!-- YANGI ORDER CARD -->
+<!-- NEW ORDER CARD -->
 <div id="orderCard">
     <div class="order-handle"></div>
-    <div class="order-title">🚖 Yangi buyurtma!</div>
+    <div class="order-title">🚖 New order!</div>
 
     <div class="order-row">
         <div class="order-icon pickup">📍</div>
         <div>
-            <div class="order-text-label">Qayerdan</div>
+            <div class="order-text-label">From</div>
             <div class="order-text-value" id="orderPickup">—</div>
         </div>
     </div>
@@ -455,48 +455,48 @@
     <div class="order-row">
         <div class="order-icon dest">🏁</div>
         <div>
-            <div class="order-text-label">Qayerga</div>
+            <div class="order-text-label">To</div>
             <div class="order-text-value" id="orderDest">—</div>
         </div>
     </div>
 
     <div class="order-meta">
         <div class="meta-chip">
-            <div class="meta-chip-label">Masofa</div>
+            <div class="meta-chip-label">Distance</div>
             <div class="meta-chip-value" id="orderDistance">— km</div>
         </div>
         <div class="meta-chip">
-            <div class="meta-chip-label">Narx</div>
-            <div class="meta-chip-value" id="orderPrice">— so'm</div>
+            <div class="meta-chip-label">Price</div>
+            <div class="meta-chip-value" id="orderPrice">— UZS</div>
         </div>
     </div>
 
     <div class="timer-bar">
         <div class="timer-fill" id="timerFill"></div>
     </div>
-    <div class="order-timer" id="timerText">60 soniya</div>
+    <div class="order-timer" id="timerText">60 seconds</div>
 
     <div class="order-btns">
-        <button class="btn-accept" onclick="acceptOrder()">✅ Qabul qilish</button>
-        <button class="btn-reject" onclick="rejectOrder()">❌ Rad etish</button>
+        <button class="btn-accept" onclick="acceptOrder()">✅ Accept</button>
+        <button class="btn-reject" onclick="rejectOrder()">❌ Reject</button>
     </div>
 </div>
 
-<!-- AKTIV ORDER CARD -->
+<!-- ACTIVE ORDER CARD -->
 <div id="activeOrderCard">
     <div class="order-handle"></div>
-    <div class="active-order-status" id="activeStatus">Holat</div>
-    <div class="active-order-title" id="activeTitle">Buyurtma</div>
+    <div class="active-order-status" id="activeStatus">Status</div>
+    <div class="active-order-title" id="activeTitle">Order</div>
     <button class="btn-full btn-yellow" id="actionBtn" onclick="doAction()">—</button>
     <button class="btn-full btn-red" onclick="cancelActiveOrder()"
             id="cancelActiveBtn" style="display:none;">
-        Bekor qilish
+        Cancel
     </button>
 </div>
 
 <!-- NO ORDER MSG -->
 <div id="noOrderMsg" style="display:none;">
-    🚗 Buyurtma kutilmoqda...
+    🚗 Waiting for orders...
 </div>
 
 {% endblock %}
@@ -515,6 +515,43 @@
     var ws = null;
     var API = '';   // Django same origin
 
+    // ── AUTH ──
+    // The login token is added to every driver request in the "Authorization: Bearer" header.
+    // The server resolves the driver from this token (it does not trust driver_id in the body).
+    async function apiFetch(path, options) {
+        options = options || {};
+        var headers = options.headers || {};
+        if (driverData && driverData.token) {
+            headers['Authorization'] = 'Bearer ' + driverData.token;
+        }
+        if (options.body && !headers['Content-Type']) {
+            headers['Content-Type'] = 'application/json';
+        }
+        options.headers = headers;
+
+        var resp = await fetch(API + path, options);
+        if (resp.status === 401) {
+            // Token expired, invalid, or account blocked — log in again
+            forceRelogin('Session expired. Please log in again.');
+            throw new Error('unauthorized');
+        }
+        return resp;
+    }
+
+    function forceRelogin(msg) {
+        localStorage.removeItem('driver');
+        driverData = null;
+        stopLocationTracking();
+        clearInterval(timerInterval);
+        document.getElementById('loginScreen').style.display = '';
+        document.getElementById('topBar').style.display = 'none';
+        document.getElementById('walletBadge').style.display = 'none';
+        document.getElementById('noOrderMsg').style.display = 'none';
+        document.getElementById('orderCard').classList.remove('visible');
+        document.getElementById('activeOrderCard').style.display = 'none';
+        if (msg) showLoginError(msg);
+    }
+
     // ── LOGIN ──
     async function doLogin() {
         var code = document.getElementById('loginCode').value.trim();
@@ -523,7 +560,7 @@
         errEl.style.display = 'none';
 
         if (!code || !password) {
-            showLoginError('Driver kodi va parolni kiriting');
+            showLoginError('Enter your driver code and password');
             return;
         }
 
@@ -545,11 +582,11 @@
             } else {
                 var msg = data.non_field_errors
                     ? data.non_field_errors[0]
-                    : 'Login yoki parol noto\'g\'ri';
+                    : (data.detail || 'Invalid driver code or password');
                 showLoginError(msg);
             }
         } catch (e) {
-            showLoginError('Server bilan aloqa yo\'q');
+            showLoginError('Cannot reach the server');
         }
     }
 
@@ -566,28 +603,29 @@
         document.getElementById('walletBadge').style.display = 'block';
         document.getElementById('noOrderMsg').style.display = 'block';
 
-        // Driver ma'lumotlari
+        // Driver data
         document.getElementById('driverNameTop').innerText = driverData.full_name;
         document.getElementById('driverCarTop').innerText =
             driverData.car_model + ' | ' + driverData.car_number;
         document.getElementById('walletAmount').innerText =
-            parseInt(driverData.wallet).toLocaleString('uz-UZ');
+            parseInt(driverData.wallet).toLocaleString('en-US');
 
         // Status
         isOnline = driverData.is_online;
         updateStatusBtn();
 
-        // Xarita
+        // Map
         ymaps.ready(initMap);
 
-        // URL da order_id bo'lsa — aktiv order
+        // order_id in the URL means an active order
         var params = new URLSearchParams(window.location.search);
         var orderId = params.get('order_id');
         if (orderId) {
             currentOrderId = orderId;
             showIncomingOrder(orderId);
         }
-        startLocationTracking();
+        // An offline driver's location is not sent (same in toggleStatus)
+        if (isOnline) startLocationTracking();
     }
 
     // ── MAP ──
@@ -607,27 +645,7 @@
         }
     }
 
-    // ── STATUS TOGGLE ──
-    async function toggleStatus() {
-        if (!driverData) return;
-        var newStatus = !isOnline;
-
-        try {
-            var resp = await fetch(API + '/api/drivers/' + driverData.id + '/status/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_online: newStatus })
-            });
-
-            if (resp.ok) {
-                isOnline = newStatus;
-                updateStatusBtn();
-            }
-        } catch (e) {
-            console.error('Status xato:', e);
-        }
-    }
-
+    // ── STATUS TOGGLE ── (toggleStatus() is below, together with location tracking)
     function updateStatusBtn() {
         var btn = document.getElementById('statusBtn');
         var text = document.getElementById('statusText');
@@ -638,7 +656,7 @@
     // ── INCOMING ORDER (URL dan) ──
     async function showIncomingOrder(orderId) {
         try {
-            var resp = await fetch(API + '/api/orders/' + orderId + '/detail/');
+            var resp = await apiFetch('/api/orders/' + orderId + '/detail/');
             if (!resp.ok) return;
             var order = await resp.json();
 
@@ -647,9 +665,9 @@
             document.getElementById('orderDistance').innerText =
                 (order.distance_km || 0).toFixed(1) + ' km';
             document.getElementById('orderPrice').innerText =
-                parseInt(order.estimated_price || 0).toLocaleString('uz-UZ');
+                parseInt(order.estimated_price || 0).toLocaleString('en-US');
 
-            // Mijoz locationini xaritada ko'rsatamiz
+            // Show the client's location on the map
             if (order.pickup_latitude && order.pickup_longitude) {
                 showClientOnMap(order.pickup_latitude, order.pickup_longitude);
             }
@@ -657,10 +675,10 @@
             document.getElementById('noOrderMsg').style.display = 'none';
             document.getElementById('orderCard').classList.add('visible');
 
-            // 60 soniya timer
+            // 60-second timer
             startTimer(60);
         } catch (e) {
-            console.error('Order detail xato:', e);
+            console.error('Order detail error:', e);
         }
     }
 
@@ -668,7 +686,7 @@
         if (!map) return;
         if (clientMarker) map.geoObjects.remove(clientMarker);
         clientMarker = new ymaps.Placemark([lat, lon], {
-            hintContent: 'Mijoz joylashuvi'
+            hintContent: 'Client location'
         }, {
             preset: 'islands#redDotIcon'
         });
@@ -688,7 +706,7 @@
             remaining--;
             var pct = (remaining / seconds) * 100;
             fill.style.width = pct + '%';
-            text.innerText = remaining + ' soniya';
+            text.innerText = remaining + ' seconds';
 
             if (remaining <= 0) {
                 clearInterval(timerInterval);
@@ -703,36 +721,60 @@
         clearInterval(timerInterval);
 
         try {
-            var resp = await fetch(API + '/api/orders/' + currentOrderId + '/action/', {
+            var resp = await apiFetch('/api/orders/' + currentOrderId + '/action/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': getCookie('csrftoken')
                 },
                 body: JSON.stringify({
-                    action: 'accept',
-                    driver_id: driverData.id
+                    action: 'accept'
                 })
             });
 
             if (resp.ok) {
                 document.getElementById('orderCard').classList.remove('visible');
                 showActiveOrder('ACCEPTED');
+            } else {
+                // E.g. another driver accepted it first
+                var err = await resp.json().catch(function() { return {}; });
+                alert(err.error || 'Could not accept the order');
+                document.getElementById('orderCard').classList.remove('visible');
+                document.getElementById('noOrderMsg').style.display = 'block';
+                currentOrderId = null;
             }
         } catch (e) {
-            console.error('Accept xato:', e);
+            console.error('Accept error:', e);
         }
     }
 
-    // ── REJECT ──
-    function rejectOrder() {
+    // ── REJECT ── (button pressed or timer ran out)
+    async function rejectOrder() {
         clearInterval(timerInterval);
+        var orderId = currentOrderId;
         currentOrderId = null;
         document.getElementById('orderCard').classList.remove('visible');
         document.getElementById('noOrderMsg').style.display = 'block';
+
+        if (!orderId || !driverData) return;
+        // Tell the server too — so this order is not offered to this driver again
+        try {
+            await apiFetch('/api/orders/' + orderId + '/action/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    action: 'reject'
+                })
+            });
+        } catch (e) {
+            console.error('Reject error:', e);
+        }
     }
 
-    // ── AKTIV ORDER ──
+    // ── ACTIVE ORDER ──
     function showActiveOrder(status) {
         var card = document.getElementById('activeOrderCard');
         card.style.display = 'block';
@@ -749,21 +791,21 @@
 
         var states = {
             'ACCEPTED': {
-                status: 'Mijoz oldiga boring',
-                title: '🚗 Yo\'lda...',
-                btn: '📍 Yetib keldim',
+                status: 'Drive to the client',
+                title: '🚗 On the way...',
+                btn: '📍 I have arrived',
                 cancel: true
             },
             'WAITING': {
-                status: 'Mijoz tushishini kuting',
-                title: '⏳ Kutilmoqda',
-                btn: '▶️ Safarni boshlash',
+                status: 'Wait for the client to get in',
+                title: '⏳ Waiting',
+                btn: '▶️ Start trip',
                 cancel: false
             },
             'IN_PROGRESS': {
-                status: 'Safar davom etmoqda',
-                title: '🏁 Manzilga boring',
-                btn: '✅ Safarni yakunlash',
+                status: 'Trip in progress',
+                title: '🏁 Drive to the destination',
+                btn: '✅ Finish trip',
                 cancel: false
             }
         };
@@ -787,15 +829,14 @@
         if (!action) return;
 
         try {
-            var resp = await fetch(API + '/api/orders/' + currentOrderId + '/action/', {
+            var resp = await apiFetch('/api/orders/' + currentOrderId + '/action/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': getCookie('csrftoken')
                 },
                 body: JSON.stringify({
-                    action: action,
-                    driver_id: driverData.id
+                    action: action
                 })
             });
 
@@ -814,30 +855,32 @@
                     currentOrderId = null;
                     currentOrderStatus = null;
                 }
+            } else {
+                var err = await resp.json().catch(function() { return {}; });
+                alert(err.error || 'Could not complete the action');
             }
         } catch (e) {
-            console.error('Action xato:', e);
+            console.error('Action error:', e);
         }
     }
 
     async function cancelActiveOrder() {
         try {
-            await fetch(API + '/api/orders/' + currentOrderId + '/action/', {
+            await apiFetch('/api/orders/' + currentOrderId + '/action/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': getCookie('csrftoken')
                 },
                 body: JSON.stringify({
-                    action: 'cancel',
-                    driver_id: driverData.id
+                    action: 'cancel'
                 })
             });
             document.getElementById('activeOrderCard').style.display = 'none';
             document.getElementById('noOrderMsg').style.display = 'block';
             currentOrderId = null;
         } catch (e) {
-            console.error('Cancel xato:', e);
+            console.error('Cancel error:', e);
         }
     }
 
@@ -849,10 +892,14 @@
 
     // ── INIT ──
     window.addEventListener('DOMContentLoaded', function() {
-        var saved = localStorage.getItem('driver');
-        if (saved) {
-            driverData = JSON.parse(saved);
+        var saved = null;
+        try { saved = JSON.parse(localStorage.getItem('driver') || 'null'); } catch (e) {}
+        // Data saved by an older version has no token — require logging in again
+        if (saved && saved.token) {
+            driverData = saved;
             showMainScreen();
+        } else if (saved) {
+            localStorage.removeItem('driver');
         }
     });
     var locationWatcher = null;
@@ -860,32 +907,32 @@
     function startLocationTracking() {
         if (!navigator.geolocation || !driverData) return;
 
-        // Har safar lokatsiya o'zgarganda yuboradi
+        // Sends whenever the location changes
         locationWatcher = navigator.geolocation.watchPosition(
             function(pos) {
                 sendLocation(pos.coords.latitude, pos.coords.longitude);
             },
             function(err) {
-                console.warn('GPS xato:', err.message);
+                console.warn('GPS error:', err.message);
             },
             {
                 enableHighAccuracy: true,   // ← aniq GPS
-                maximumAge: 5000,           // ← 5 sekunddan eski bo'lmaydi
+                maximumAge: 5000,           // ← no older than 5 seconds
                 timeout: 10000
             }
         );
     }
 
-    // Throttle — ko'pi bilan har 5 sekundda 1 marta yuboradi
+    // Throttle — sends at most once every 5 seconds
     var lastSentTime = 0;
 
     async function sendLocation(lat, lon) {
         var now = Date.now();
-        if (now - lastSentTime < 5000) return;   // ← 5 sekunddan kam bo'lsa o'tkazib yuboradi
+        if (now - lastSentTime < 5000) return;   // ← skip if less than 5 seconds
         lastSentTime = now;
 
         try {
-            await fetch(API + '/api/drivers/' + driverData.id + '/location/', {
+            await apiFetch('/api/drivers/' + driverData.id + '/location/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -893,13 +940,13 @@
                     longitude: lon
                 })
             });
-            console.log('Lokatsiya yuborildi:', lat, lon);
+            console.log('Location sent:', lat, lon);
         } catch (e) {
-            console.warn('Lokatsiya yuborishda xato:', e);
+            console.warn('Failed to send location:', e);
         }
     }
 
-    // Driver offline bo'lganda tracking to'xtatiladi
+    // Tracking stops when the driver goes offline
     function stopLocationTracking() {
         if (locationWatcher !== null) {
             navigator.geolocation.clearWatch(locationWatcher);
@@ -907,12 +954,13 @@
         }
     }
 
+    // ── STATUS TOGGLE ──
     async function toggleStatus() {
-    if (!driverData) return;
+        if (!driverData) return;
         var newStatus = !isOnline;
 
         try {
-            var resp = await fetch(API + '/api/drivers/' + driverData.id + '/status/', {
+            var resp = await apiFetch('/api/drivers/' + driverData.id + '/status/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ is_online: newStatus })
@@ -922,15 +970,14 @@
                 isOnline = newStatus;
                 updateStatusBtn();
 
-                // ← shu qismni qo'shing
                 if (isOnline) {
-                    startLocationTracking();   // Online → tracking boshlaydi
+                    startLocationTracking();   // Online → start tracking
                 } else {
-                    stopLocationTracking();    // Offline → tracking to'xtaydi
+                    stopLocationTracking();    // Offline → stop tracking
                 }
             }
         } catch (e) {
-            console.error('Status xato:', e);
+            console.error('Status error:', e);
         }
     }
 

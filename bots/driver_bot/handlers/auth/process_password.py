@@ -21,18 +21,19 @@ async def process_password(message: Message, state: FSMContext):
         driver = result["driver"]
         is_online = driver.get("is_online", False)
 
-        # ✅ State ni tozalaymiz — lekin ma'lumotlarni saqlaymiz
+        # Clear the state but keep the data
         await state.set_state(None)
         await state.update_data(
             driver_id=driver["id"],
+            token=driver.get("token"),   # for backend requests
             driver_name=driver["full_name"],
             is_online=is_online
         )
 
         text = (
-            f"✅ <b>Xush kelibsiz, {driver['full_name']}!</b>\n\n"
-            f"🚗 Mashina: {driver.get('car_model', '—')} | {driver.get('car_number', '—')}\n"
-            f"Holat: {'🟢 Online' if is_online else '🔴 Offline'}"
+            f"✅ <b>Welcome, {driver['full_name']}!</b>\n\n"
+            f"🚗 Car: {driver.get('car_model', '—')} | {driver.get('car_number', '—')}\n"
+            f"Status: {'🟢 Online' if is_online else '🔴 Offline'}"
         )
 
         await message.answer(
@@ -43,7 +44,7 @@ async def process_password(message: Message, state: FSMContext):
 
     else:
         await message.answer(
-            f"❌ {result['message']}\n\nLoginингизni kiriting:",
+            f"❌ {result['message']}\n\nPlease enter your driver code again:",
             parse_mode="HTML"
         )
         await state.set_state(AuthStates.waiting_login) 

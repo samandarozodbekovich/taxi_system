@@ -15,9 +15,10 @@ async def driver_login(login: str, password: str) -> dict:
                 if response.status == 200:
                     return {"success": True, "driver": data}
                 else:
-                    error = data.get("non_field_errors", ["Xatolik"])[0]
+                    # On 429 (IP throttle) DRF returns "detail"
+                    error = data.get("non_field_errors", [data.get("detail", "Error")])[0]
                     return {"success": False, "message": error}
     except Exception as e:
-        logger.error(f"Login API xatolik: {e}")
-        return {"success": False, "message": "Server bilan aloqa yo'q"}
+        logger.error(f"Login API error: {e}")
+        return {"success": False, "message": "Cannot reach the server"}
     

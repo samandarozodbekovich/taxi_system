@@ -1,29 +1,27 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
-from apps.drivers.models import Driver
+
+from apps.drivers.mixins import DriverAuthMixin
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class DriverLocationUpdateView(APIView):
-    permission_classes = [AllowAny]
+class DriverLocationUpdateView(DriverAuthMixin, APIView):
 
     def post(self, request, pk):
+        # The driver comes from the token - another driver's location cannot be changed
+        driver = request.user
+        if driver.id != pk:
+            return Response({"error": "You can only send your own location."}, status=403)
+
         try:
-            driver = Driver.objects.get(id=pk)
-        except Driver.DoesNotExist:
-            return Response({"error": "Driver topilmadi."}, status=404)
+            lat = float(request.data.get("latitude"))
+            lon = float(request.data.get("longitude"))
+        except (TypeError, ValueError):
+            return Response({"error": "latitude and longitude are required."}, status=400)
 
-        lat = request.data.get("latitude")
-        lon = request.data.get("longitude")
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            return Response({"error": "Invalid coordinates."}, status=400)
 
-        if not lat or not lon:
-            return Response({"error": "latitude va longitude kerak."}, status=400)
-
-        # Driver modelidagi update_location metodini chaqiramiz
-        # U current_latitude, current_longitude va current_location (PointField) ni yangilaydi
+        # Updates current_latitude, current_longitude and current_location (PointField)
         driver.update_location(lat, lon)
 
         return Response({"success": True})

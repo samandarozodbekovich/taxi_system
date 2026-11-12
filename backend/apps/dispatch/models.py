@@ -13,31 +13,31 @@ class OrderDispatch(models.Model):
         related_name='dispatches'
     )
 
-    # Masofani saqlash (bu haydovchining buyurtma berilgan vaqtdagi masofasi)
+    # Stored distance (the driver's distance to the client when the order was offered)
     distance_to_client_km = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
         default=0
     )
     
-    # Statuslar
-    is_sent = models.BooleanField(default=True) # Yaratildimi, demak yuborildi
+    # Statuses
+    is_sent = models.BooleanField(default=True) # Created means sent
     is_viewed = models.BooleanField(default=False)
     is_accepted = models.BooleanField(default=False)
     is_rejected = models.BooleanField(default=False)
     
-    # Vaqtlar
+    # Timestamps
     sent_at = models.DateTimeField(auto_now_add=True)
     viewed_at = models.DateTimeField(null=True, blank=True)
     responded_at = models.DateTimeField(null=True, blank=True)
     
-    # Timeout uchun (Masalan, 30 soniya ichida javob bermasa, keyingi driverga o'tadi)
+    # For timeouts (e.g. if the driver does not answer in time, the next driver gets the offer)
     expires_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        verbose_name = "Buyurtma taqsimoti"
-        verbose_name_plural = "Buyurtma taqsimotlari"
-        # Bitta haydovchiga bitta buyurtma bir marta yuborilishi shart
+        verbose_name = "Order dispatch"
+        verbose_name_plural = "Order dispatches"
+        # An order is offered to a given driver only once
         unique_together = ('order', 'driver')
         indexes = [
             models.Index(fields=['order', 'is_accepted']),
@@ -47,13 +47,13 @@ class OrderDispatch(models.Model):
         return f"Order #{self.order.id} -> Driver: {self.driver.full_name}"
 
     def accept(self):
-        """Haydovchi qabul qilganda chaqiriladi"""
+        """Called when the driver accepts."""
         self.is_accepted = True
         self.responded_at = timezone.now()
         self.save()
 
     def reject(self):
-        """Haydovchi rad etganda chaqiriladi"""
+        """Called when the driver rejects."""
         self.is_rejected = True
         self.responded_at = timezone.now()
         self.save()

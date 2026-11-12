@@ -434,13 +434,13 @@
 <div class="bottom-sheet" id="bottomSheet">
     <div class="location-search">
     <div class="location-field">
-        <input id="pickupInput" type="text" placeholder="Qayerdan boshlaymiz?" autocomplete="off"
+        <input id="pickupInput" type="text" placeholder="Where from?" autocomplete="off"
                oninput="onSearchInput('pickup')" onfocus="onSearchInput('pickup')">
         <button class="field-action" type="button" onclick="clearLocation('pickup')">×</button>
         <ul class="suggestions" id="pickupSuggestions"></ul>
     </div>
     <div class="location-field">
-        <input id="destinationInput" type="text" placeholder="Qayerga boramiz?" autocomplete="off"
+        <input id="destinationInput" type="text" placeholder="Where to?" autocomplete="off"
                oninput="onSearchInput('destination')" onfocus="onSearchInput('destination')">
         <button class="field-action" type="button" onclick="clearLocation('destination')">×</button>
         <ul class="suggestions" id="destinationSuggestions"></ul>
@@ -454,19 +454,19 @@
         <!-- Status row -->
         <div id="status-chip">
             <div class="chip-dot" id="chipDot"></div>
-            <div id="info">Yo'nalishni belgilang...</div>
+            <div id="info">Set your route...</div>
         </div>
 
         <!-- Route summary (shown after route found) -->
         <div class="route-summary" id="routeSummary" style="display:none;">
             <div class="route-point">
-                <span class="route-label">Manba</span>
-                <span class="route-value" id="routeFrom">A nuqta</span>
+                <span class="route-label">From</span>
+                <span class="route-value" id="routeFrom">Point A</span>
             </div>
             <div class="route-divider"></div>
             <div class="route-point">
-                <span class="route-label">Manzil</span>
-                <span class="route-value" id="routeTo">B nuqta</span>
+                <span class="route-label">To</span>
+                <span class="route-value" id="routeTo">Point B</span>
             </div>
         </div>
 
@@ -474,7 +474,7 @@
         <div class="price-row" id="priceRow" style="display:none;">
             <div style="display:flex;align-items:baseline;">
                 <span class="price-amount" id="priceAmount">0</span>
-                <span class="price-unit">so'm</span>
+                <span class="price-unit">UZS</span>
             </div>
             <div class="distance-badge" id="distanceBadge">— km</div>
         </div>
@@ -493,10 +493,10 @@
         <div class="btn-wrap">
             <button id="mainBtn" onclick="createOrder()">
                 <div class="btn-spinner"></div>
-                <span class="btn-label">Taxi chaqirish</span>
+                <span class="btn-label">Call a taxi</span>
             </button>
-            <button id="cancelBtn" onclick="cancelOrder()">Buyurtmani bekor qilish</button>
-            <button id="reorderBtn" onclick="createOrder()">Buyurtma berish</button>
+            <button id="cancelBtn" onclick="cancelOrder()">Cancel order</button>
+            <button id="reorderBtn" onclick="createOrder()">Order again</button>
         </div>
     </div>
 </div>
@@ -529,7 +529,7 @@
             var coords = e.get('coords');
             if (!startPlacemark) {
                 setPoint('start', coords);
-                document.getElementById('info').innerText = 'Manzilni tanlang';
+                document.getElementById('info').innerText = 'Choose the destination';
                 return;
             }
             if (!endPlacemark) {
@@ -540,13 +540,13 @@
             resetRoute(coords);
         });
 
-        document.getElementById('info').innerText = 'Xaritaga bosib boshlang‘ich va manzilni belgilang';
+        document.getElementById('info').innerText = 'Tap the map to set the pickup point and destination';
     }
 
     function setPoint(type, coords) {
         var placemark = new ymaps.Placemark(coords, {
-            hintContent: type === 'start' ? 'Boshlang‘ich' : 'Manzil',
-            balloonContent: type === 'start' ? 'Boshlang‘ich nuqta' : 'Manzil nuqta',
+            hintContent: type === 'start' ? 'Pickup' : 'Destination',
+            balloonContent: type === 'start' ? 'Pickup point' : 'Destination point',
             iconCaption: type === 'start' ? 'A' : 'B'
         }, {
             preset: 'islands#icon',
@@ -655,7 +655,7 @@
             }
             document.getElementById('routeSummary').style.display = 'none';
             document.getElementById('priceRow').style.display = 'none';
-            document.getElementById('info').innerText = 'Manzilni tanlab yoki xaritaga bosib nuqta qo‘ying';
+            document.getElementById('info').innerText = 'Choose an address or tap the map to set a point';
         }
     }
 
@@ -669,7 +669,7 @@
         }
         updateSummaryLabels();
 
-        fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(address) + '&limit=1&accept-language=uz,ru')
+        fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(address) + '&limit=1&accept-language=en,uz,ru')
         .then(function(r) { return r.json(); })
         .then(function(results) {
             if (!results || !results[0]) return;
@@ -684,7 +684,7 @@
     function resetRoute(coords) {
         clearRoute();
         setPoint('start', coords);
-        document.getElementById('info').innerText = 'Manzilni tanlang';
+        document.getElementById('info').innerText = 'Choose the destination';
     }
 
     function clearRoute() {
@@ -707,7 +707,7 @@
         document.getElementById('routeSummary').style.display = 'none';
         document.getElementById('priceRow').style.display = 'none';
         document.getElementById('driver-card').classList.remove('visible');
-        document.getElementById('info').innerText = 'Xaritaga bosib boshlang‘ich va manzilni belgilang';
+        document.getElementById('info').innerText = 'Tap the map to set the pickup point and destination';
         setChipState('idle');
     }
 
@@ -759,31 +759,32 @@
                 opacity: 0.9
             });
             map.geoObjects.add(currentRoute);
-            updateRouteData(data.distance_km, coords);
+            updateRouteData(data.distance_km, coords, data.estimated_price);
         })
         .catch(function(error) {
             console.error('Yandex route error:', error);
-            document.getElementById('info').innerText = 'Marshrut topilmadi, boshqa joyni tanlang';
+            document.getElementById('info').innerText = 'No route found, choose another place';
         });
     }
 
-    function updateRouteData(distanceKm, coords) {
+    function updateRouteData(distanceKm, coords, serverPrice) {
         currentDistance = distanceKm;
         currentGeometry = coords;
 
-        var price = Math.round(currentDistance * 3000 / 500) * 500;
+        // The price comes from the server (the same formula is used when the order is created)
+        var price = serverPrice || 0;
         document.getElementById('routeSummary').style.display = 'flex';
         document.getElementById('priceRow').style.display = 'flex';
-        document.getElementById('priceAmount').innerText = price.toLocaleString('uz-UZ');
+        document.getElementById('priceAmount').innerText = price.toLocaleString('en-US');
         document.getElementById('distanceBadge').innerText = currentDistance.toFixed(1) + ' km';
-        document.getElementById('info').innerText = 'Marshrutingiz tayyor';
+        document.getElementById('info').innerText = 'Your route is ready';
         updateSummaryLabels();
         setChipState('idle');
     }
 
     function updateSummaryLabels() {
-        document.getElementById('routeFrom').innerText = startAddress || 'A nuqta';
-        document.getElementById('routeTo').innerText = endAddress || 'B nuqta';
+        document.getElementById('routeFrom').innerText = startAddress || 'Point A';
+        document.getElementById('routeTo').innerText = endAddress || 'Point B';
     }
 
     function getPointDistance(fromCoords, toCoords) {
@@ -805,8 +806,8 @@
     function reverseGeocode(coords, callback) {
         var lat = coords[0];
         var lon = coords[1];
-        fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon + '&accept-language=uz,ru', {
-            headers: { 'Accept-Language': 'uz,ru' }
+        fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon + '&accept-language=en,uz,ru', {
+            headers: { 'Accept-Language': 'en,uz,ru' }
         })
         .then(function(r) { return r.json(); })
         .then(function(data) {
@@ -815,10 +816,10 @@
                 var parts = data.display_name.split(',');
                 callback(parts.slice(0, 2).join(',').trim());
             } else {
-                callback('Noma\'lum manzil');
+                callback('Unknown address');
             }
         })
-        .catch(function() { callback('Noma\'lum manzil'); });
+        .catch(function() { callback('Unknown address'); });
     }
 
     function locateUser() {
@@ -843,7 +844,7 @@
 
         if (!currentOrderId) {
             btn.disabled = false;
-            btn.querySelector('.btn-label').innerText = 'Taxi chaqirish';
+            btn.querySelector('.btn-label').innerText = 'Call a taxi';
             btn.style.background = '';
             btn.style.color = '';
             btn.onclick = createOrder;
@@ -857,9 +858,9 @@
 
         if (currentOrderStatus === 'CANCELED') {
             btn.disabled = true;
-            btn.querySelector('.btn-label').innerText = 'Buyurtma bekor qilindi';
+            btn.querySelector('.btn-label').innerText = 'Order canceled';
             setChipState('canceled');
-            document.getElementById('info').innerText = 'Buyurtma bekor qilindi.';
+            document.getElementById('info').innerText = 'Order canceled.';
             reorderBtn.style.display = 'flex';
             reorderBtn.disabled = false;
             return;
@@ -867,12 +868,12 @@
 
         if (currentOrderStatus === 'COMPLETED') {
             btn.disabled = true;
-            btn.querySelector('.btn-label').innerText = 'Buyurtma yakunlandi';
+            btn.querySelector('.btn-label').innerText = 'Order completed';
             return;
         }
 
         btn.disabled = true;
-        btn.querySelector('.btn-label').innerText = 'Haydovchi kutilmoqda...';
+        btn.querySelector('.btn-label').innerText = 'Waiting for a driver...';
         var cancellableStatuses = ['SEARCHING', 'WAITING'];
         if (cancellableStatuses.includes(currentOrderStatus)) {
             cancelBtn.style.display = 'flex';
@@ -884,13 +885,14 @@
 
     async function createOrder() {
         if (!startPlacemark || !endPlacemark) {
-            alert('Iltimos, xaritadan boshlang‘ich va manzil nuqtalarini tanlang.');
+            alert('Please choose the pickup and destination points on the map.');
             return;
         }
 
-        var tele = window.Telegram.WebApp;
-        var user = tele.initDataUnsafe && tele.initDataUnsafe.user;
-        var telegramId = user ? user.id : 12345;
+        if (!getInitData()) {
+            alert('Please open the app from the Telegram bot.');
+            return;
+        }
 
         var startCoords = startPlacemark.geometry.getCoordinates();
         var endCoords = endPlacemark.geometry.getCoordinates();
@@ -903,24 +905,23 @@
         btn.classList.add('loading');
         btn.disabled = true;
         setChipState('searching');
-        document.getElementById('info').innerText = 'Haydovchi qidirilmoqda...';
+        document.getElementById('info').innerText = 'Looking for a driver...';
 
         try {
             var response = await fetch('/api/orders/create/', {
                 method: 'POST',
-                headers: {
+                headers: clientAuthHeaders({
                     'Content-Type': 'application/json',
                     'X-CSRFToken': getCookie('csrftoken')
-                },
+                }),
                 body: JSON.stringify({
-                    client_telegram_id: telegramId,
                     pickup_latitude: startCoords[0],
                     pickup_longitude: startCoords[1],
                     destination_latitude: endCoords[0],
                     destination_longitude: endCoords[1],
                     distance: distanceValue,
-                    pickup_address: startAddress || document.getElementById('pickupInput').value || 'A nuqta',
-                    destination_address: endAddress || document.getElementById('destinationInput').value || 'B nuqta'
+                    pickup_address: startAddress || document.getElementById('pickupInput').value || 'Point A',
+                    destination_address: endAddress || document.getElementById('destinationInput').value || 'Point B'
                 })
             });
 
@@ -933,27 +934,27 @@
                     
                     connectToSocket(data.id);
                     btn.classList.remove('loading');
-                    btn.querySelector('.btn-label').innerText = 'Qidirilmoqda...';
+                    btn.querySelector('.btn-label').innerText = 'Searching...';
                     btn.disabled = true;
 
-                    // ✅ Cancel tugmasini ko'rsatamiz
+                    // Show the Cancel button
                     document.getElementById('cancelBtn').style.display = 'flex';
                     document.getElementById('cancelBtn').disabled = false;
 
                     setChipState('searching');
-                    document.getElementById('info').innerText = '🔍 Haydovchi qidirilmoqda...';
+                    document.getElementById('info').innerText = '🔍 Looking for a driver...';
                     document.getElementById('reorderBtn').style.display = 'none';
                 }
                 
             else {
-                alert('Xatolik: ' + JSON.stringify(data));
+                alert('Error: ' + JSON.stringify(data));
                 btn.disabled = false;
                 setChipState('idle');
-                document.getElementById('info').innerText = 'Marshrutingiz tayyor';
+                document.getElementById('info').innerText = 'Your route is ready';
             }
         } catch (error) {
-            console.error('Xato:', error);
-            alert('Server bilan aloqa uzildi!');
+            console.error('Error:', error);
+            alert('Lost connection to the server!');
             btn.classList.remove('loading');
             btn.disabled = false;
             setChipState('idle');
@@ -962,70 +963,85 @@
 
     function connectToSocket(orderId) {
         var protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        var ws = new WebSocket(protocol + '://' + window.location.host + '/ws/order/' + orderId + '/');
+        // Browsers can't add headers to a WebSocket — initData goes in the query string,
+        // and the server checks that this is the order owner
+        var ws = new WebSocket(protocol + '://' + window.location.host + '/ws/order/' + orderId + '/?tma=' + encodeURIComponent(getInitData()));
 
-        // ws.onmessage ichida - updateButtonState() ni O'CHIRISH
+        // Do not call updateButtonState() inside ws.onmessage
         ws.onmessage = function(e) {
             var response = JSON.parse(e.data);
             var payload = response.order_data;
             if (!payload) return;
 
             currentOrderStatus = payload.status || currentOrderStatus;
-            // ❌ updateButtonState() — BU QATORNI O'CHIRING
+            // updateButtonState() is intentionally not called here
 
             if (payload.status === 'SEARCHING') {
                 setChipState('searching');
-                document.getElementById('info').innerText = '🔍 Haydovchi qidirilmoqda...';
+                document.getElementById('info').innerText = '🔍 Looking for a driver...';
                 document.getElementById('cancelBtn').style.display = 'flex';
                 document.getElementById('cancelBtn').disabled = false;
-                document.getElementById('mainBtn').querySelector('.btn-label').innerText = 'Qidirilmoqda...';
+                document.getElementById('mainBtn').querySelector('.btn-label').innerText = 'Searching...';
                 document.getElementById('mainBtn').disabled = true;
             }
 
             if (payload.status === 'ACCEPTED') {
                 setChipState('accepted');
-                document.getElementById('info').innerText = '🚗 Haydovchi kelmoqda';
+                document.getElementById('info').innerText = '🚗 Your driver is on the way';
                 document.getElementById('driverName').innerText = payload.driver_name || '—';
                 document.getElementById('driverCar').innerText = payload.car_model || '—';
                 document.getElementById('driverPlate').innerText = payload.car_number || '—';
                 document.getElementById('driver-card').classList.add('visible');
                 document.getElementById('cancelBtn').style.display = 'none';
-                document.getElementById('mainBtn').querySelector('.btn-label').innerText = 'Haydovchi kelmoqda...';
+                document.getElementById('mainBtn').querySelector('.btn-label').innerText = 'Driver is on the way...';
                 document.getElementById('mainBtn').disabled = true;
             }
 
             if (payload.status === 'WAITING') {
                 setChipState('accepted');
-                document.getElementById('info').innerText = '📍 Haydovchi yetib keldi!';
-                // ✅ WAITING da cancel ko'rsatamiz
+                document.getElementById('info').innerText = '📍 Your driver has arrived!';
+                // Show Cancel while WAITING
                 document.getElementById('cancelBtn').style.display = 'flex';
                 document.getElementById('cancelBtn').disabled = false;
-                document.getElementById('mainBtn').querySelector('.btn-label').innerText = 'Haydovchi kutmoqda...';
+                document.getElementById('mainBtn').querySelector('.btn-label').innerText = 'Driver is waiting...';
                 document.getElementById('mainBtn').disabled = true;
             }
 
             if (payload.status === 'IN_PROGRESS') {
                 setChipState('accepted');
-                document.getElementById('info').innerText = '🏁 Safar davom etmoqda...';
+                document.getElementById('info').innerText = '🏁 Trip in progress...';
                 document.getElementById('cancelBtn').style.display = 'none';
-                document.getElementById('mainBtn').querySelector('.btn-label').innerText = 'Safar davom etmoqda...';
+                document.getElementById('mainBtn').querySelector('.btn-label').innerText = 'Trip in progress...';
                 document.getElementById('mainBtn').disabled = true;
             }
 
             if (payload.status === 'COMPLETED') {
                 setChipState('idle');
-                document.getElementById('info').innerText = '✅ Safar yakunlandi!';
+                document.getElementById('info').innerText = '✅ Trip completed!';
                 document.getElementById('driver-card').classList.remove('visible');
                 document.getElementById('cancelBtn').style.display = 'none';
-                document.getElementById('mainBtn').querySelector('.btn-label').innerText = 'Taxi chaqirish';
+                document.getElementById('mainBtn').querySelector('.btn-label').innerText = 'Call a taxi';
                 document.getElementById('mainBtn').disabled = false;
                 document.getElementById('reorderBtn').style.display = 'flex';
                 currentOrderId = null;
             }
 
+            // Search timed out, nobody accepted (server: tasks.expire_order_search)
+            if (payload.status === 'NO_DRIVER') {
+                setChipState('canceled');
+                document.getElementById('info').innerText = '😔 No available drivers nearby. Please try again.';
+                document.getElementById('driver-card').classList.remove('visible');
+                document.getElementById('cancelBtn').style.display = 'none';
+                document.getElementById('mainBtn').querySelector('.btn-label').innerText = 'No driver found';
+                document.getElementById('mainBtn').disabled = true;
+                document.getElementById('reorderBtn').style.display = 'flex';
+                document.getElementById('reorderBtn').disabled = false;
+                currentOrderId = null;
+            }
+
             if (payload.status === 'CANCELED') {
                 setChipState('canceled');
-                document.getElementById('info').innerText = '❌ Buyurtma bekor qilindi';
+                document.getElementById('info').innerText = '❌ Order canceled';
                 document.getElementById('driver-card').classList.remove('visible');
                 document.getElementById('cancelBtn').style.display = 'none';
                 document.getElementById('reorderBtn').style.display = 'flex';
@@ -1034,16 +1050,13 @@
         };
 
         ws.onclose = function() {
-            console.warn('WebSocket yopildi!');
+            console.warn('WebSocket closed!');
         };
     }
 
     async function cancelOrder() {
         if (!currentOrderId) return;
 
-        var tele = window.Telegram.WebApp;
-        var user = tele.initDataUnsafe && tele.initDataUnsafe.user;
-        var telegramId = user ? user.id : 12345;
         var btn = document.getElementById('mainBtn');
 
         btn.classList.add('loading');
@@ -1052,11 +1065,11 @@
         try {
             var response = await fetch('/api/orders/' + currentOrderId + '/cancel/', {
                 method: 'POST',
-                headers: {
+                headers: clientAuthHeaders({
                     'Content-Type': 'application/json',
                     'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify({ client_telegram_id: telegramId })
+                }),
+                body: JSON.stringify({})
             });
 
             var data = await response.json();
@@ -1067,17 +1080,30 @@
                 updateButtonState();
                 document.getElementById('driver-card').classList.remove('visible');
             } else {
-                alert('Xatolik: ' + JSON.stringify(data));
+                alert('Error: ' + JSON.stringify(data));
                 btn.disabled = false;
                 btn.classList.add('cancel');
             }
         } catch (error) {
-            console.error('Xato:', error);
-            alert('Server bilan aloqa uzildi!');
+            console.error('Error:', error);
+            alert('Lost connection to the server!');
             btn.classList.remove('loading');
             btn.disabled = false;
             btn.classList.add('cancel');
         }
+    }
+
+    // The server identifies the client by the raw initData signed by Telegram (HMAC check with the bot token).
+    // Sending initDataUnsafe.user.id was unsafe — anyone can change it.
+    function getInitData() {
+        var tele = window.Telegram && window.Telegram.WebApp;
+        return (tele && tele.initData) || '';
+    }
+
+    function clientAuthHeaders(extra) {
+        var headers = Object.assign({}, extra || {});
+        headers['Authorization'] = 'tma ' + getInitData();
+        return headers;
     }
 
     function getCookie(name) {
@@ -1118,12 +1144,9 @@
 
     async function checkActiveOrder() {
         try {
-            var tele = window.Telegram && window.Telegram.WebApp;
-            var user = tele && tele.initDataUnsafe && tele.initDataUnsafe.user;
-            var telegramId = user ? user.id : null;
-            if (!telegramId) return;
+            if (!getInitData()) return;
 
-            var resp = await fetch('/api/orders/active/?client_telegram_id=' + encodeURIComponent(telegramId));
+            var resp = await fetch('/api/orders/active/', { headers: clientAuthHeaders() });
             if (!resp.ok) return;
             var payload = await resp.json();
             if (payload.active) {
@@ -1134,17 +1157,17 @@
 
                 if (currentOrderStatus === 'SEARCHING') {
                     setChipState('searching');
-                    document.getElementById('info').innerText = 'Haydovchi qidirilmoqda...';
+                    document.getElementById('info').innerText = 'Looking for a driver...';
                 } else if (currentOrderStatus === 'ACCEPTED') {
                     setChipState('accepted');
-                    document.getElementById('info').innerText = 'Haydovchi kelmoqda';
+                    document.getElementById('info').innerText = 'Your driver is on the way';
                 } else if (currentOrderStatus === 'WAITING') {
                     setChipState('arrived');
-                    document.getElementById('info').innerText = 'Haydovchi kutmoqda';
+                    document.getElementById('info').innerText = 'Your driver is waiting';
                 }
             }
         } catch (e) {
-            console.warn('checkActiveOrder xato', e);
+            console.warn('checkActiveOrder error', e);
         }
     }
 </script>

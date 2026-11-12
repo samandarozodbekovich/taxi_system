@@ -1,0 +1,2 @@
+from .client_bot_authentication import ClientBotAuthentication
+from .telegram_web_app_authentication import TelegramWebAppAuthentication

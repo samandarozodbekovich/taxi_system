@@ -1,30 +1,16 @@
-
-from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.views import APIView
 
-from apps.clients.models import Client
-from apps.orders.services import OrderService
+from apps.clients.mixins import ClientAuthMixin
+from apps.orders.functions import cancel_by_client
 
 
-
-class OrderCancelByClientView(APIView):
-    permission_classes = [AllowAny]
+class OrderCancelByClientView(ClientAuthMixin, APIView):
 
     def post(self, request, order_id):
-        telegram_id = request.data.get('client_telegram_id')
-        cancel_reason = request.data.get('cancel_reason')
-
-        if not telegram_id:
-            return Response({"error": "client_telegram_id is required."}, status=400)
-
+        # The client comes from initData - nobody can cancel someone else's order
         try:
-            client = Client.objects.get(telegram_id=telegram_id)
-        except Client.DoesNotExist:
-            return Response({"error": "Bunday mijoz topilmadi."}, status=404)
-
-        try:
-            OrderService.cancel_by_client(order_id, client, cancel_reason)
-            return Response({"message": "Buyurtma muvaffaqiyatli bekor qilindi."})
+            cancel_by_client(order_id, request.user, request.data.get('cancel_reason'))
         except Exception as e:
             return Response({"error": str(e)}, status=400)
+        return Response({"message": "Order canceled successfully."})

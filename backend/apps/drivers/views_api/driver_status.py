@@ -1,40 +1,32 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import AllowAny
 
-from ..models import Driver
+from apps.drivers.mixins import DriverAuthMixin
 
 
-class DriverStatusView(APIView):
-    permission_classes = [AllowAny]
+class DriverStatusView(DriverAuthMixin, APIView):
 
     def post(self, request, pk):
-        try:
-            driver = Driver.objects.get(id=pk)
-        except Driver.DoesNotExist:
+        # The driver comes from the token; the pk in the URL may only be their own
+        driver = request.user
+        if driver.id != pk:
             return Response(
-                {"error": "Driver topilmadi."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        if driver.is_blocked:
-            return Response(
-                {"error": "Sizning hisobingiz bloklangan."},
+                {"error": "You can only change your own status."},
                 status=status.HTTP_403_FORBIDDEN
             )
 
         is_online = request.data.get("is_online")
 
-        if is_online is None:
+        if not isinstance(is_online, bool):
             return Response(
-                {"error": "is_online maydoni talab qilinadi."},
+                {"error": "The is_online field (true/false) is required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         new_status = "ONLINE" if is_online else "OFFLINE"
         driver.status = new_status
-        driver.save(update_fields=["status", "updated_at"]) 
+        driver.save(update_fields=["status", "updated_at"])
 
         return Response(
             {"status": new_status},

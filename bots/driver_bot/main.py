@@ -25,13 +25,13 @@ async def main():
 
     await bot.delete_webhook(drop_pending_updates=True)
 
-    # ← Internet uzilsa avtomatik qayta ulanadi
+    # Reconnects automatically if the connection drops
     while True:
         try:
             await dp.start_polling(bot)
         except Exception as e:
-            logger.error(f"Polling xato: {e}")
-            logger.info("5 soniyadan keyin qayta ulanadi...")
+            logger.error(f"Polling error: {e}")
+            logger.info("Reconnecting in 5 seconds...")
             await asyncio.sleep(5)
 
 
@@ -39,4 +39,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("Bot to'xtatildi.")
+        logger.info("Bot stopped.")

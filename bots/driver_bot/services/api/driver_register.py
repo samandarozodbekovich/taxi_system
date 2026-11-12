@@ -15,7 +15,7 @@ async def driver_register(full_name, phone_number, car_model,
         "car_color": car_color,
         "car_number": car_number,
         "password": password,
-        "telegram_id": telegram_id   # ← shu yerda keladi
+        "telegram_id": telegram_id   # passed in here
     }
 
     try:
@@ -25,10 +25,10 @@ async def driver_register(full_name, phone_number, car_model,
                 if response.status == 201:
                     return {
                         "success": True,
-                        "driver_code": data.get("driver_code"),  # ← .get() xavfsiz
-                        "driver_id": data.get("id")              # ← .get() xavfsiz
+                        "driver_code": data.get("driver_code"),  # .get() is safe
+                        "driver_id": data.get("id"),             # .get() is safe
                     }
                 return {"success": False, "message": str(data)}
     except Exception as e:
-        logger.error(f"Register API xato: {e}")
-        return {"success": False, "message": "Server bilan aloqa yo'q"}
+        logger.error(f"Register API error: {e}")
+        return {"success": False, "message": "Cannot reach the server"}

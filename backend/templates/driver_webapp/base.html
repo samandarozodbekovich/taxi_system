@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="uz">
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Driver Panel</title>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=864afd67-9653-46d6-a82a-3526e8fc10bd"></script>
+    <script src="https://api-maps.yandex.ru/2.1/?lang=en_US&apikey={{ YANDEX_FRONTEND_MAP_KEY }}"></script>
     <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Unbounded:wght@600;700&display=swap" rel="stylesheet">
     {% csrf_token %}
     {% block head_extra %}{% endblock %}

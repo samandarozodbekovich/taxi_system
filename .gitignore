@@ -2,3 +2,6 @@ venv
 backend/.env
 bots/client_bot/.env
 bots/driver_bot/.env
+__pycache__/
+*.pyc
+graphify-out/

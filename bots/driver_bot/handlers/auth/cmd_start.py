@@ -2,12 +2,14 @@ from aiogram import Router
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import CommandStart
-from django.db import router
 
 from states.auth import AuthStates, RegisterStates
 
 
 router = Router()
+
+BTN_LOGIN = "🔐 Log in"
+BTN_REGISTER = "📝 Register"
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
@@ -17,27 +19,27 @@ async def cmd_start(message: Message, state: FSMContext):
     
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="🔐 Kirish")],
-            [KeyboardButton(text="📝 Ro'yxatdan o'tish")]
+            [KeyboardButton(text=BTN_LOGIN)],
+            [KeyboardButton(text=BTN_REGISTER)]
         ],
         resize_keyboard=True
     )
     
     await message.answer(
-        "🚗 <b>Taxi Driver Paneli</b>\n\n"
-        "Nima qilmoqchisiz?",
+        "🚗 <b>Taxi Driver Panel</b>\n\n"
+        "What would you like to do?",
         parse_mode="HTML",
         reply_markup=keyboard
     )
     
     
-@router.message(lambda m: m.text == "📝 Ro'yxatdan o'tish")
+@router.message(lambda m: m.text == BTN_REGISTER)
 async def start_register(message: Message, state: FSMContext):
-    await message.answer("👤 Ismingizni kiriting (To'liq ism):")
+    await message.answer("👤 Enter your full name:")
     await state.set_state(RegisterStates.waiting_full_name)
 
 
-@router.message(lambda m: m.text == "🔐 Kirish")
+@router.message(lambda m: m.text == BTN_LOGIN)
 async def start_login(message: Message, state: FSMContext):
-    await message.answer("🔑 Driver kodingizni kiriting")
+    await message.answer("🔑 Enter your driver code")
     await state.set_state(AuthStates.waiting_login)

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
+from ..functions import generate_driver_code
 from ..models import Driver
-import random
 
 
 class DriverRegisterSerializer(serializers.ModelSerializer):
@@ -23,13 +23,13 @@ class DriverRegisterSerializer(serializers.ModelSerializer):
     def validate_phone_number(self, value):
 
         if Driver.objects.filter(phone_number=value).exists():
-            raise serializers.ValidationError("Bu telefon raqam allaqachon ro'yxatdan o'tgan.")
+            raise serializers.ValidationError("This phone number is already registered.")
         return value
 
     def validate_car_number(self, value):
 
         if Driver.objects.filter(car_number=value).exists():
-            raise serializers.ValidationError("Bu mashina raqami allaqachon ro'yxatdan o'tgan.")
+            raise serializers.ValidationError("This car number is already registered.")
         return value
 
     def create(self, validated_data):
@@ -42,11 +42,3 @@ class DriverRegisterSerializer(serializers.ModelSerializer):
         )
         driver.save()
         return driver
-    
-def generate_driver_code():
-
-    while True:
-        number = random.randint(10000, 99999)
-        code = f"DRV-{number}"
-        if not Driver.objects.filter(driver_code=code).exists():
-            return code

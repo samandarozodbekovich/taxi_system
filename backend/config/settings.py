@@ -2,31 +2,52 @@ from dotenv import load_dotenv
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-load_dotenv()
+# Always read .env from backend/, regardless of the working directory
+load_dotenv(BASE_DIR / '.env')
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-t6up2i&cnifme9-%546ar9me!urvzlo*caccs#l*p7h8i11#yf"
+def env_list(name, default=""):
+    return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+def env_required(name):
+    value = os.getenv(name)
+    if not value:
+        raise ImproperlyConfigured(f"{name} is not set in .env.")
+    return value
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://repressed-jackpot-dolly.ngrok-free.dev',
-]
+
+# Secrets come only from .env - no defaults in code.
+# (The previously hard-coded SECRET_KEY is still in git history; don't use it.)
+SECRET_KEY = env_required("DJANGO_SECRET_KEY")
+
+# Defaults to production mode. For local development set DJANGO_DEBUG=True in .env.
+DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() in ("1", "true", "yes")
+
+# Not "*" - only allowed domains (e.g. localhost,127.0.0.1,example.ngrok-free.dev)
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
+
+CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
 YANDEX_ROUTING_API_KEY=os.getenv('YANDEX_ROUTING_API_KEY')
 YANDEX_FRONTEND_MAP_KEY=os.getenv('YANDEX_FRONTEND_MAP_KEY')
 
 DRIVER_BOT_TOKEN=os.getenv("DRIVER_BOT_TOKEN")
 DRIVER_WEBAPP_URL=os.getenv("DRIVER_WEBAPP_URL")
+
+# Your own OSRM server (e.g. http://localhost:5000). If empty, the router.project-osrm.org demo server is used;
+# it is for testing only: its usage policy forbids production use and it is rate-limited.
+OSRM_BASE_URL = os.getenv("OSRM_BASE_URL", "")
+
+# Mini App initData signatures are verified with this token (the client bot that opens the Mini App)
+CLIENT_BOT_TOKEN = os.getenv("CLIENT_BOT_TOKEN")
+# Shared secret for client bot -> backend requests (X-Bot-Secret header)
+BOT_API_SECRET = os.getenv("BOT_API_SECRET", "")
 # Application definition
 
 INSTALLED_APPS = [
@@ -77,15 +98,16 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "config.context_processors.frontend_keys",
             ],
         },
     },
 ]
 
-# WSGI o'rniga ASGI ishlatamiz
+# Use ASGI instead of WSGI
 ASGI_APPLICATION = 'config.asgi.application'
 
-# Redis serveri (Docker yoki o'zida o'rnatilgan bo'lishi kerak)
+# Redis server (Docker or locally installed)
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -102,7 +124,21 @@ CHANNEL_LAYERS = {
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
-    ]
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        # Driver login attempts per IP (the driver bot sends from one IP for all drivers)
+        'driver_login': '30/min',
+    },
+    # Number of proxies in front of the server (ngrok/nginx - 1). Without it the IP came from a spoofable X-Forwarded-For.
+    'NUM_PROXIES': int(os.getenv('DJANGO_NUM_PROXIES', '0')),
+}
+
+# Throttle and login lockout counters must be shared by all daphne/celery processes
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.getenv("REDIS_CACHE_URL", "redis://127.0.0.1:6379/2"),
+    }
 }
 
 # Database
@@ -111,11 +147,11 @@ REST_FRAMEWORK = {
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'NAME': 'taxi_system_db',
-        'USER': 'postgres',
-        'PASSWORD': '12345',
-        'HOST': 'localhost',  
-        'PORT': '5432',      
+        'NAME': os.getenv('DB_NAME', 'taxi_system_db'),
+        'USER': os.getenv('DB_USER', 'postgres'),
+        'PASSWORD': env_required('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
@@ -170,18 +206,21 @@ STATICFILES_DIRS = [
 # CELERY SETTINGS
 # ==============================================================================
 
-# Redis broker manzili (lokal server uchun standart port 6379)
-CELERY_BROKER_URL = 'redis://localhost:6379/1'  # /1 - Redis ichidagi 1-baza (Channels-ga xalaqit bermasligi uchun)
+# Redis broker URL (default port 6379 for a local server)
+CELERY_BROKER_URL = 'redis://localhost:6379/1'  # /1 - Redis database 1 (so it doesn't interfere with Channels)
 
-# Vazifalar natijalarini saqlash uchun (ixtiyoriy, lekin kerak bo'ladi)
+# Stores task results (optional, but useful)
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/1'
 
-# Xabarlarni qabul qilish formati va vaqt zonasi
+# Message format and timezone
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = TIME_ZONE  # Djangodagi vaqt zonasi bilan birxil qiladi
+CELERY_TIMEZONE = TIME_ZONE  # same timezone as Django
 
-# Agar vazifa bajarilayotganda xatolik yuz bersa, uni qayta urinish (retry) mantiqlari
+# Retry logic if a task fails while running
 CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 30 * 60  # Maksimal 30 daqiqa ishlashi mumkin bitta task
+CELERY_TASK_TIME_LIMIT = 30 * 60  # A single task may run for at most 30 minutes
+if not DEBUG and not OSRM_BASE_URL:
+    import warnings
+    warnings.warn("OSRM_BASE_URL is not set - the OSRM demo server is used in production (forbidden and rate-limited).")

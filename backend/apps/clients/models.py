@@ -26,24 +26,35 @@ class Client(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Mijoz"
-        verbose_name_plural = "Mijozlar"
+        verbose_name = "Client"
+        verbose_name_plural = "Clients"
         ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.full_name} ({self.phone_number})"
 
+    # Needed when used as DRF request.user (apps.clients.authentication).
+    # These are plain properties, not DB fields - no migration required.
     @property
-    def is_currently_blocked(self):
-        """Vaqt bo'yicha bloklanganligini tekshirish"""
-        if self.is_blocked:
-            if self.blocked_until and self.blocked_until > timezone.now():
-                return True
-            # Agar blok muddati o'tgan bo'lsa, avtomatik ochish logikasini bu yerda qilish mumkin
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_anonymous(self):
         return False
 
+    @property
+    def is_currently_blocked(self):
+        """Whether the client is blocked, taking blocked_until into account."""
+        if not self.is_blocked:
+            return False
+        # No blocked_until means an indefinite block (previously this case was treated as "not blocked")
+        if self.blocked_until is None:
+            return True
+        return self.blocked_until > timezone.now()
+
     def save(self, *args, **kwargs):
-        # Referral kod yaratish (agar yo'q bo'lsa)
+        # Generate a referral code (if missing)
         if not self.referral_code:
             self.referral_code = str(uuid.uuid4())[:8].upper()
         super().save(*args, **kwargs)

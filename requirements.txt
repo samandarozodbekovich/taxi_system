@@ -4,6 +4,7 @@ Pillow
 psycopg2-binary
 channels
 channels-redis
+redis
 daphne
 celery
 eventlet
