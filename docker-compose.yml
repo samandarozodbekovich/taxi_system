@@ -40,9 +40,12 @@ services:
       REDIS_HOST: redis
       # The bots call the backend at http://backend:8000
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost},backend
+      # Caddy is the one proxy in front
+      DJANGO_NUM_PROXIES: 1
     command: sh -c "python manage.py migrate --noinput && daphne -b 0.0.0.0 -p 8000 config.asgi:application"
+    # Public traffic goes through Caddy; 8000 stays reachable from this machine only (ngrok, debugging)
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - media:/app/backend/media
 
@@ -71,7 +74,26 @@ services:
       REDIS_URL: redis://redis:6379/3
     command: python main.py
 
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - media:/srv/media:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
 volumes:
   pgdata:
   redisdata:
   media:
+  caddy_data:
+  caddy_config:

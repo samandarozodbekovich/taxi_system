@@ -86,10 +86,12 @@ docker compose --env-file backend/.env up -d --build
 
 Starts PostGIS, Redis, the backend (migrations run on start), the Celery worker and both bots. Inside Docker the database and Redis hosts are set automatically (`db`, `redis`); the bots reach the backend at `http://backend:8000`.
 
+Caddy sits in front on ports 80/443: it gets a Let's Encrypt certificate for `DOMAIN` (point the domain's DNS at the server first), redirects HTTP to HTTPS, adds HSTS, proxies HTTP and WebSocket to the backend and serves uploaded files from `/media/`. Port 8000 is bound to `127.0.0.1` only. Without `DOMAIN` it serves `https://localhost` with a self-signed certificate.
+
 ## Production checklist
 
 - `DJANGO_DEBUG=False`, a strong `DJANGO_SECRET_KEY`, a real `DB_PASSWORD`.
-- `DJANGO_ALLOWED_HOSTS` / `DJANGO_CSRF_TRUSTED_ORIGINS` = your domain; `DJANGO_NUM_PROXIES=1` behind nginx.
+- `DOMAIN`, `DJANGO_ALLOWED_HOSTS` / `DJANGO_CSRF_TRUSTED_ORIGINS` = your domain (`DJANGO_NUM_PROXIES=1` is set by Docker Compose; set it yourself behind any other proxy).
 - Restrict `YANDEX_FRONTEND_MAP_KEY` to your domain (HTTP Referer) in the Yandex developer console.
 - Run your own OSRM (the public demo server forbids production use):
 

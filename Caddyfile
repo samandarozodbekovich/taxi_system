@@ -1,0 +1,23 @@
+# HTTPS reverse proxy in front of the backend (see the caddy service in docker-compose.yml).
+# Caddy gets a Let's Encrypt certificate for DOMAIN and redirects HTTP to HTTPS.
+# Access logs are off (no `log` directive): the order WebSocket carries initData in the query string.
+
+{$DOMAIN:localhost} {
+	encode gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+
+	# Uploaded files (driver photos) from the shared media volume
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+	}
+
+	# Django: HTTP, WebSocket and static files (WhiteNoise).
+	# Caddy sets X-Forwarded-For / X-Forwarded-Proto, so DJANGO_NUM_PROXIES=1.
+	reverse_proxy backend:8000
+}
