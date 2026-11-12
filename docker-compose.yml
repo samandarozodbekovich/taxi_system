@@ -1,0 +1,77 @@
+# Run everything:  docker compose --env-file backend/.env up -d --build
+# (--env-file lets this file read DB_NAME / DB_USER / DB_PASSWORD / DJANGO_ALLOWED_HOSTS from backend/.env)
+
+x-app: &app
+  build: .
+  restart: unless-stopped
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_started
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-taxi_system_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in backend/.env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-taxi_system_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+
+  backend:
+    <<: *app
+    env_file: backend/.env
+    environment:
+      DB_HOST: db
+      REDIS_HOST: redis
+      # The bots call the backend at http://backend:8000
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost},backend
+    command: sh -c "python manage.py migrate --noinput && daphne -b 0.0.0.0 -p 8000 config.asgi:application"
+    ports:
+      - "8000:8000"
+    volumes:
+      - media:/app/backend/media
+
+  celery:
+    <<: *app
+    env_file: backend/.env
+    environment:
+      DB_HOST: db
+      REDIS_HOST: redis
+    command: celery -A config worker --loglevel=info
+
+  client_bot:
+    <<: *app
+    working_dir: /app/bots/client_bot
+    env_file: bots/client_bot/.env
+    environment:
+      API_URL: http://backend:8000
+    command: python main.py
+
+  driver_bot:
+    <<: *app
+    working_dir: /app/bots/driver_bot
+    env_file: bots/driver_bot/.env
+    environment:
+      API_BASE_URL: http://backend:8000
+      REDIS_URL: redis://redis:6379/3
+    command: python main.py
+
+volumes:
+  pgdata:
+  redisdata:
+  media:

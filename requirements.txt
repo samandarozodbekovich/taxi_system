@@ -1,17 +1,22 @@
-Django
-djangorestframework
-Pillow
-psycopg2-binary
-channels
-channels-redis
-redis
-daphne
-celery
-eventlet
-requests
-python-dotenv
+# Versions are pinned to the ones the test suite passes with.
+# Update deliberately: bump a version, run `python manage.py test`, then commit.
 
-# client_bot
-httpx
-aiogram
-python-dotenv
+# Backend
+Django==6.1.3
+djangorestframework==3.18.3
+channels==4.3.2
+channels-redis==4.3.0
+daphne==4.2.3
+celery==5.7.0
+eventlet==0.41.3
+redis==8.1.0
+psycopg2-binary==2.9.13
+pillow==13.0.0
+requests==2.34.2
+whitenoise==6.12.0
+python-dotenv==1.2.4
+
+# Telegram bots (bots/client_bot, bots/driver_bot)
+aiogram==3.31.0
+aiohttp==3.14.5
+httpx==0.28.1

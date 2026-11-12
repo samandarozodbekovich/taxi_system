@@ -34,7 +34,14 @@ ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
-YANDEX_ROUTING_API_KEY=os.getenv('YANDEX_ROUTING_API_KEY')
+# HTTPS is terminated by the proxy in front (nginx / ngrok). No SSL redirect or HSTS here:
+# the bots call the backend over plain http://backend:8000 inside Docker.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+if int(os.getenv('DJANGO_NUM_PROXIES', '0')) > 0:
+    # Trust the proxy's X-Forwarded-Proto so request.is_secure() is correct
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 YANDEX_FRONTEND_MAP_KEY=os.getenv('YANDEX_FRONTEND_MAP_KEY')
 
 DRIVER_BOT_TOKEN=os.getenv("DRIVER_BOT_TOKEN")
@@ -78,6 +85,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Serves static files (admin CSS/JS) when DEBUG=False, without nginx
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -107,12 +116,15 @@ TEMPLATES = [
 # Use ASGI instead of WSGI
 ASGI_APPLICATION = 'config.asgi.application'
 
-# Redis server (Docker or locally installed)
+# Redis server (Docker: "redis", local: 127.0.0.1). Databases: 0 Channels, 1 Celery, 2 cache, 3 driver bot FSM
+REDIS_HOST = os.getenv("REDIS_HOST", "127.0.0.1")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [("127.0.0.1", 6379)],
+            "hosts": [(REDIS_HOST, REDIS_PORT)],
             "expiry": 3600,
             "symmetric_encryption_keys": [SECRET_KEY], 
         },
@@ -137,7 +149,7 @@ REST_FRAMEWORK = {
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": os.getenv("REDIS_CACHE_URL", "redis://127.0.0.1:6379/2"),
+        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/2",
     }
 }
 
@@ -197,20 +209,26 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
-]
+# collectstatic target, served by WhiteNoise
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+# Uploaded files (driver photos)
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
 
 
 # ==============================================================================
 # CELERY SETTINGS
 # ==============================================================================
 
-# Redis broker URL (default port 6379 for a local server)
-CELERY_BROKER_URL = 'redis://localhost:6379/1'  # /1 - Redis database 1 (so it doesn't interfere with Channels)
+# Redis database 1 (so it doesn't interfere with Channels)
+CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/1"
 
 # Stores task results (optional, but useful)
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/1'
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 
 # Message format and timezone
 CELERY_ACCEPT_CONTENT = ['json']
@@ -221,6 +239,7 @@ CELERY_TIMEZONE = TIME_ZONE  # same timezone as Django
 # Retry logic if a task fails while running
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # A single task may run for at most 30 minutes
+
 if not DEBUG and not OSRM_BASE_URL:
     import warnings
     warnings.warn("OSRM_BASE_URL is not set - the OSRM demo server is used in production (forbidden and rate-limited).")
