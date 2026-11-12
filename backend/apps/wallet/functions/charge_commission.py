@@ -8,7 +8,9 @@ def charge_commission(order, amount):
     before_balance = wallet.balance
     wallet.balance -= amount
     wallet.total_commission_paid += amount
-    wallet.save(update_fields=['balance', 'total_commission_paid', 'updated_at'])
+    # The client pays the driver in cash - the driver keeps the fare minus the commission
+    wallet.total_earned += order.total_price - amount
+    wallet.save(update_fields=['balance', 'total_commission_paid', 'total_earned', 'updated_at'])
     WalletTransaction.objects.create(
         wallet=wallet,
         order=order,

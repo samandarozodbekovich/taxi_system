@@ -1,1 +1,2 @@
+from .apply_wallet_transaction import apply_wallet_transaction
 from .charge_commission import charge_commission

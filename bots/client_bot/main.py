@@ -1,16 +1,16 @@
 import asyncio
 import logging
+
+from handlers import router
 from loader import bot, dp
-from handlers import start
+
 
 async def main():
     logging.basicConfig(level=logging.INFO)
-    
-    # Register routers
-    dp.include_router(start.router)
-    
-    print("Bot ishga tushdi...")
+    dp.include_router(router)
+    print("Bot started...")
     await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
     try:

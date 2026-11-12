@@ -21,7 +21,7 @@ async def main():
     dp.include_router(auth.router)
     dp.include_router(menu.router)
 
-    logger.info("Driver bot ishga tushdi...")
+    logger.info("Driver bot started...")
 
     await bot.delete_webhook(drop_pending_updates=True)
 

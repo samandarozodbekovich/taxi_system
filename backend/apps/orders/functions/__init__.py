@@ -1,6 +1,7 @@
 from .accept_order import accept_order
 from .calculate_estimate_price import calculate_estimate_price
 from .calculate_trip_route import calculate_trip_route
+from .calculate_waiting_price import calculate_waiting_price
 from .cancel_by_client import cancel_by_client
 from .cancel_by_driver import cancel_by_driver
 from .complete_order import complete_order

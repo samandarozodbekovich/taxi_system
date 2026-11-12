@@ -7,7 +7,8 @@ from .views import (
     OrderCancelByClientView,
     ActiveOrderByClientView,
     RouteInfoView,
-    OrderDetailView
+    OrderDetailView,
+    OrderHistoryByClientView,
 )
 
 urlpatterns = [
@@ -15,6 +16,7 @@ urlpatterns = [
     path("create/", OrderCreateView.as_view(), name="order-create"),
     path("route/", RouteInfoView.as_view(), name="order-route"),
     path("active/", ActiveOrderByClientView.as_view(), name="order-active"),
+    path("history/", OrderHistoryByClientView.as_view(), name="order-history"),
     path("<int:order_id>/action/", OrderActionView.as_view(), name="order-action"),
     path("<int:order_id>/cancel/", OrderCancelByClientView.as_view(), name="order-cancel"),
     path('<int:pk>/detail/', OrderDetailView.as_view()),

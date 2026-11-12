@@ -3,5 +3,6 @@ from .order_create import OrderCreateView
 from .order_action import OrderActionView 
 from .client_cancel_order import OrderCancelByClientView
 from .client_order_active import ActiveOrderByClientView
+from .client_order_history import OrderHistoryByClientView
 from .route import RouteInfoView
 from .order_detail import OrderDetailView

@@ -4,6 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.drivers.models import Driver
+from apps.referrals.functions import award_referral_bonus
 from apps.settings_app.models import SystemSetting
 from apps.wallet.functions import charge_commission
 
@@ -26,6 +27,7 @@ def complete_order(order_id, driver):
 
         Driver.objects.filter(id=order.driver_id).update(status="ONLINE", updated_at=timezone.now())
         charge_commission(order, order.commission_amount)
+        award_referral_bonus(order)
 
         notify_order_update(order.id, {'status': 'COMPLETED'})
         return order
