@@ -5,6 +5,7 @@ from apps.dispatch.models import OrderDispatch
 from apps.drivers.models import Driver
 
 from .get_locked_order import get_locked_order
+from .is_offered_to_driver import is_offered_to_driver
 from .notify_order_update import notify_order_update
 
 
@@ -13,6 +14,9 @@ def accept_order(order_id, driver):
         order = get_locked_order(order_id)
         if not order.can_transition_to("ACCEPTED"):
             raise ValueError("The order is no longer available: it was accepted, canceled, or the search timed out.")
+        # Only a driver the order was offered to may take it (no enumerating order ids)
+        if not is_offered_to_driver(order, driver):
+            raise ValueError("This order was not offered to you.")
 
         # request.user may be stale - re-read it under a lock so one driver can't accept two orders at once
         driver = Driver.objects.select_for_update().get(id=driver.id)

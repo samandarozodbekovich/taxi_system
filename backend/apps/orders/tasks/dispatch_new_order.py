@@ -8,7 +8,7 @@ def dispatch_new_order(order_id):
     """Find the nearest drivers (PostGIS + OSRM) and send them a Telegram message."""
     # orders.functions imports this task - import lazily to avoid a circular import
     from apps.drivers.functions import notify_drivers_new_order
-    from apps.orders.functions import dispatch_order_to_drivers
+    from apps.orders.functions import dispatch_order_to_all_online, dispatch_order_to_drivers
 
     try:
         order = Order.objects.get(id=order_id)
@@ -18,6 +18,7 @@ def dispatch_new_order(order_id):
     if order.status != "SEARCHING":
         return f"Order {order_id} is not searching ({order.status})."
 
-    dispatches = dispatch_order_to_drivers(order)
+    # Nobody nearby (e.g. driver locations unknown) - offer it to every online driver
+    dispatches = dispatch_order_to_drivers(order) or dispatch_order_to_all_online(order)
     notify_drivers_new_order(order, [d.driver for d in dispatches])
     return f"Order {order_id}: offered to {len(dispatches)} driver(s)."

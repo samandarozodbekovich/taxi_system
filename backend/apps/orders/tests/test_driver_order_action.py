@@ -3,6 +3,7 @@ from rest_framework.test import APIClient
 
 from apps.drivers.tests.constants import LOCMEM_CACHE
 from apps.drivers.tests.functions import auth_header, make_driver
+from apps.wallet.models import DriverWallet, WalletTransaction
 
 from .functions import make_client, make_order
 
@@ -59,4 +60,9 @@ class DriverOrderActionTests(TestCase):
         self.assert_status(order, "COMPLETED")
         self.driver.refresh_from_db()
         self.assertEqual(self.driver.status, "ONLINE")
-        self.assertEqual(self.driver.wallet, -order.commission_amount)
+        # Commission is charged from the single balance (DriverWallet) and logged
+        wallet = DriverWallet.objects.get(driver=self.driver)
+        self.assertEqual(wallet.balance, -order.commission_amount)
+        transaction = WalletTransaction.objects.get(wallet=wallet, order=order)
+        self.assertEqual(transaction.transaction_type, "COMMISSION")
+        self.assertEqual(transaction.after_balance, wallet.balance)

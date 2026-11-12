@@ -21,7 +21,7 @@ def dispatch_order_to_drivers(order):
     offered_driver_ids = OrderDispatch.objects.filter(order=order).values_list('driver_id', flat=True)
 
     drivers = list(
-        Driver.objects.filter(status="ONLINE", is_blocked=False, is_approved=True, wallet__gte=0)
+        Driver.objects.filter(status="ONLINE", is_blocked=False, is_approved=True, wallet_record__balance__gte=0)
         .exclude(id__in=offered_driver_ids)
         .filter(current_location__distance_lte=(order.pickup_location, D(km=SEARCH_RADIUS_KM)))
         .annotate(air_distance=Distance('current_location', order.pickup_location))

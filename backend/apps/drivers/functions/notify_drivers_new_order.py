@@ -4,9 +4,6 @@ import time
 import requests
 from django.conf import settings
 
-from apps.dispatch.models import OrderDispatch
-from apps.drivers.models import Driver
-
 from .new_order_message import new_order_message
 
 logger = logging.getLogger(__name__)
@@ -15,19 +12,11 @@ logger = logging.getLogger(__name__)
 TELEGRAM_SEND_INTERVAL_SECONDS = 1 / 25
 
 
-def notify_drivers_new_order(order, drivers=None):
-    """
-    Telegram message about a new order (called from the dispatch_new_order Celery task).
-    drivers - the nearest dispatched drivers; if none, all ONLINE drivers except
-    those who rejected this order.
-    """
-    if not drivers:
-        drivers = Driver.objects.filter(
-            status='ONLINE', is_blocked=False, is_approved=True, telegram_id__isnull=False
-        ).exclude(id__in=OrderDispatch.objects.filter(order=order, is_rejected=True).values('driver_id'))
+def notify_drivers_new_order(order, drivers):
+    """Telegram message about a new order to the drivers it was dispatched to (from a Celery task)."""
     drivers = [d for d in drivers if d.telegram_id]
     if not drivers:
-        logger.warning(f"Order #{order.id}: no online drivers!")
+        logger.warning(f"Order #{order.id}: no drivers to notify!")
         return
 
     text, keyboard = new_order_message(order)

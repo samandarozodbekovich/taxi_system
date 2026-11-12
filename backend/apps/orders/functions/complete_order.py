@@ -1,15 +1,14 @@
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import F
 from django.utils import timezone
 
 from apps.drivers.models import Driver
 from apps.settings_app.models import SystemSetting
+from apps.wallet.functions import charge_commission
 
 from .get_locked_order import get_locked_order
 from .notify_order_update import notify_order_update
-from .record_commission_transaction import record_commission_transaction
 
 
 def complete_order(order_id, driver):
@@ -25,13 +24,8 @@ def complete_order(order_id, driver):
         order.commission_amount = order.total_price * commission_percent / Decimal(100)
         order.save()
 
-        # Atomic in the database (wallet = wallet - commission), so a concurrent write can't lose it
-        Driver.objects.filter(id=order.driver_id).update(
-            status="ONLINE",
-            wallet=F('wallet') - order.commission_amount,
-            updated_at=timezone.now(),
-        )
-        record_commission_transaction(order, order.commission_amount)
+        Driver.objects.filter(id=order.driver_id).update(status="ONLINE", updated_at=timezone.now())
+        charge_commission(order, order.commission_amount)
 
         notify_order_update(order.id, {'status': 'COMPLETED'})
         return order

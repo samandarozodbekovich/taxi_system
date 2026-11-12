@@ -1,10 +1,12 @@
 from rest_framework import serializers
+
 from ..models import Driver
 
 
 class DriverProfileSerializer(serializers.ModelSerializer):
-
     is_online = serializers.SerializerMethodField()
+    # The balance lives in DriverWallet (the single source of truth)
+    wallet = serializers.SerializerMethodField()
 
     class Meta:
         model = Driver
@@ -23,5 +25,8 @@ class DriverProfileSerializer(serializers.ModelSerializer):
         ]
 
     def get_is_online(self, obj):
-        
         return obj.status == 'ONLINE'
+
+    def get_wallet(self, obj):
+        wallet = getattr(obj, 'wallet_record', None)
+        return wallet.balance if wallet else 0

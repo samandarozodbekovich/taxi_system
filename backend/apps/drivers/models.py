@@ -35,7 +35,6 @@ class Driver(models.Model):
     current_location = gis_models.PointField(null=True, blank=True, srid=4326)
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='OFFLINE', db_index=True)
-    wallet = models.DecimalField(max_digits=12, decimal_places=2, default=0) # 'wallet' field (came up in an earlier error)
     is_blocked = models.BooleanField(default=False)
     # A new driver cannot log in or receive orders until an admin reviews the documents and approves them
     is_approved = models.BooleanField(default=False, verbose_name="Approved")
@@ -84,5 +83,5 @@ class Driver(models.Model):
         self.current_longitude = lon
         # save() also updates current_location using the logic above.
         # Only the location fields are written: the GPS request every 5 seconds must not overwrite
-        # status='BUSY' from a concurrent accept_order (or the wallet after commission) with a stale value
+        # status='BUSY' from a concurrent accept_order with a stale value
         self.save(update_fields=['current_latitude', 'current_longitude', 'current_location', 'updated_at'])
