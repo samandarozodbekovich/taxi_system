@@ -510,6 +510,23 @@
     var startPlacemark = null;
     var endPlacemark = null;
     var currentDistance = 0;
+    var driverPlacemark = null;
+
+    // The driver's live position (sent by the server while the order is active)
+    function showDriverOnMap(lat, lon) {
+        if (!map) return;
+        if (driverPlacemark) {
+            driverPlacemark.geometry.setCoordinates([lat, lon]);
+            return;
+        }
+        driverPlacemark = new ymaps.Placemark([lat, lon], { hintContent: 'Your driver' }, { preset: 'islands#blueAutoIcon' });
+        map.geoObjects.add(driverPlacemark);
+    }
+
+    function removeDriverFromMap() {
+        if (map && driverPlacemark) map.geoObjects.remove(driverPlacemark);
+        driverPlacemark = null;
+    }
     var currentGeometry = null;
     var currentOrderId = null;
     var currentOrderStatus = null;
@@ -973,7 +990,13 @@
             var payload = response.order_data;
             if (!payload) return;
 
+            if (payload.driver_location) {
+                showDriverOnMap(payload.driver_location.lat, payload.driver_location.lon);
+                return;
+            }
+
             currentOrderStatus = payload.status || currentOrderStatus;
+            if (['COMPLETED', 'CANCELED', 'NO_DRIVER'].includes(payload.status)) removeDriverFromMap();
             // updateButtonState() is intentionally not called here
 
             if (payload.status === 'SEARCHING') {

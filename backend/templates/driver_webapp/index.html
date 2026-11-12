@@ -542,6 +542,7 @@
         localStorage.removeItem('driver');
         driverData = null;
         stopLocationTracking();
+        stopOrderPolling();
         clearInterval(timerInterval);
         document.getElementById('loginScreen').style.display = '';
         document.getElementById('topBar').style.display = 'none';
@@ -623,9 +624,65 @@
         if (orderId) {
             currentOrderId = orderId;
             showIncomingOrder(orderId);
+        } else {
+            restoreActiveOrder();
         }
-        // An offline driver's location is not sent (same in toggleStatus)
-        if (isOnline) startLocationTracking();
+        // An offline driver's location is not sent and no offers are polled (same in toggleStatus)
+        if (isOnline) {
+            startLocationTracking();
+            startOrderPolling();
+        }
+    }
+
+    // ── ACTIVE ORDER AFTER RELOAD ──
+    async function restoreActiveOrder() {
+        try {
+            var resp = await apiFetch('/api/orders/driver/active/');
+            if (!resp.ok) return;
+            var order = await resp.json();
+            if (!order.active) return;
+            currentOrderId = order.id;
+            showActiveOrder(order.status);
+            if (order.pickup_latitude && order.pickup_longitude) {
+                ymaps.ready(function() { showClientOnMap(order.pickup_latitude, order.pickup_longitude); });
+            }
+        } catch (e) {
+            console.warn('Active order error:', e);
+        }
+    }
+
+    // ── OFFER POLLING ──
+    // Offers also reach drivers who missed the Telegram message
+    var ORDER_POLL_INTERVAL_MS = 10000;
+    var orderPollTimer = null;
+
+    function startOrderPolling() {
+        stopOrderPolling();
+        pollAvailableOrders();
+        orderPollTimer = setInterval(pollAvailableOrders, ORDER_POLL_INTERVAL_MS);
+    }
+
+    function stopOrderPolling() {
+        if (orderPollTimer !== null) {
+            clearInterval(orderPollTimer);
+            orderPollTimer = null;
+        }
+    }
+
+    async function pollAvailableOrders() {
+        // Only while online and not busy with another offer or trip
+        if (!isOnline || currentOrderId) return;
+        try {
+            var resp = await apiFetch('/api/orders/available/');
+            if (!resp.ok) return;
+            var orders = await resp.json();
+            if (orders.length && !currentOrderId) {
+                currentOrderId = orders[0].id;
+                showIncomingOrder(orders[0].id);
+            }
+        } catch (e) {
+            console.warn('Available orders error:', e);
+        }
     }
 
     // ── MAP ──
@@ -653,7 +710,7 @@
         text.innerText = isOnline ? 'Online' : 'Offline';
     }
 
-    // ── INCOMING ORDER (URL dan) ──
+    // ── INCOMING ORDER ──
     async function showIncomingOrder(orderId) {
         try {
             var resp = await apiFetch('/api/orders/' + orderId + '/detail/');
@@ -916,7 +973,7 @@
                 console.warn('GPS error:', err.message);
             },
             {
-                enableHighAccuracy: true,   // ← aniq GPS
+                enableHighAccuracy: true,   // ← precise GPS
                 maximumAge: 5000,           // ← no older than 5 seconds
                 timeout: 10000
             }
@@ -972,8 +1029,10 @@
 
                 if (isOnline) {
                     startLocationTracking();   // Online → start tracking
+                    startOrderPolling();
                 } else {
                     stopLocationTracking();    // Offline → stop tracking
+                    stopOrderPolling();
                 }
             }
         } catch (e) {

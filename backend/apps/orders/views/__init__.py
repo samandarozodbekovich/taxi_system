@@ -6,3 +6,5 @@ from .client_order_active import ActiveOrderByClientView
 from .client_order_history import OrderHistoryByClientView
 from .route import RouteInfoView
 from .order_detail import OrderDetailView
+from .driver_order_active import DriverActiveOrderView
+from .driver_order_history import DriverOrderHistoryView

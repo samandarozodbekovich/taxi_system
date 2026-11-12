@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from apps.drivers.mixins import DriverAuthMixin
+from apps.orders.functions import notify_driver_location
 
 
 class DriverLocationUpdateView(DriverAuthMixin, APIView):
@@ -23,5 +24,7 @@ class DriverLocationUpdateView(DriverAuthMixin, APIView):
 
         # Updates current_latitude, current_longitude and current_location (PointField)
         driver.update_location(lat, lon)
+        # The client of the active order sees the driver approaching on the map
+        notify_driver_location(driver, lat, lon)
 
         return Response({"success": True})

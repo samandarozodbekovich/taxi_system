@@ -2,9 +2,9 @@ import asyncio
 import logging
 
 from aiogram import Bot, Dispatcher
-from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.fsm.storage.redis import RedisStorage
 
-from config import BOT_TOKEN
+from config import BOT_TOKEN, REDIS_URL
 from handlers import auth, menu
 
 logging.basicConfig(
@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 
 async def main():
     bot = Bot(token=BOT_TOKEN)
-    dp = Dispatcher(storage=MemoryStorage())
+    # Redis keeps drivers logged in across bot restarts (MemoryStorage lost every session)
+    dp = Dispatcher(storage=RedisStorage.from_url(REDIS_URL))
 
     dp.include_router(auth.router)
     dp.include_router(menu.router)

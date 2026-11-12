@@ -20,6 +20,8 @@ class Order(models.Model):
     )
 
     ACTIVE_STATUSES = ACTIVE_ORDER_STATUSES
+    # Statuses in which the order is assigned to a driver
+    DRIVER_ACTIVE_STATUSES = ('ACCEPTED', 'WAITING', 'IN_PROGRESS')
 
     # Status machine: current status -> statuses it may move to.
     # Every change goes through transition_to() - e.g. SEARCHING -> IN_PROGRESS is not allowed.

@@ -7,6 +7,7 @@ BTN_GO_ONLINE = "🟢 Go online"
 BTN_GO_OFFLINE = "🔴 Go offline"
 BTN_OPEN_PANEL = "🚗 Open panel"
 BTN_BALANCE = "💰 Balance"
+BTN_MY_TRIPS = "📋 My trips"
 
 
 def get_main_menu(is_online: bool) -> ReplyKeyboardMarkup:
@@ -19,12 +20,13 @@ def get_main_menu(is_online: bool) -> ReplyKeyboardMarkup:
         web_app=WebAppInfo(url=WEBAPP_URL)
     )
     wallet_btn = KeyboardButton(text=BTN_BALANCE)
+    trips_btn = KeyboardButton(text=BTN_MY_TRIPS)
 
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [status_btn],
             [webapp_btn],
-            [wallet_btn]
+            [wallet_btn, trips_btn]
         ],
         resize_keyboard=True,
         persistent=True
