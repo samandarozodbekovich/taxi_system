@@ -5,7 +5,7 @@ from django.utils import timezone
 from apps.dispatch.models import OrderDispatch
 from apps.drivers.models import Driver
 
-from .search_timeout_seconds import search_timeout_seconds
+from .offer_timeout_seconds import offer_timeout_seconds
 
 
 def dispatch_order_to_all_online(order):
@@ -19,7 +19,7 @@ def dispatch_order_to_all_online(order):
         wallet_record__balance__gte=0, telegram_id__isnull=False,
     ).exclude(id__in=offered_driver_ids)
 
-    expires_at = timezone.now() + timedelta(seconds=search_timeout_seconds())
+    expires_at = timezone.now() + timedelta(seconds=offer_timeout_seconds())
     dispatches = []
     for driver in drivers:
         dispatch, created = OrderDispatch.objects.get_or_create(

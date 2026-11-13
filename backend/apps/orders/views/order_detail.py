@@ -25,6 +25,11 @@ class OrderDetailView(DriverAuthMixin, APIView):
         OrderDispatch.objects.filter(order=order, driver=request.user, is_viewed=False).update(
             is_viewed=True, viewed_at=timezone.now()
         )
+        # Seconds left to answer - the panel timer counts down from the server's expiry
+        dispatch = OrderDispatch.objects.filter(order=order, driver=request.user).only('expires_at').first()
+        offer_expires_in = None
+        if order.driver_id is None and dispatch and dispatch.expires_at:
+            offer_expires_in = max(0, int((dispatch.expires_at - timezone.now()).total_seconds()))
 
         return Response({
             "id": order.id,
@@ -34,5 +39,6 @@ class OrderDetailView(DriverAuthMixin, APIView):
             "estimated_price": float(order.estimated_price or 0),
             "pickup_latitude": float(order.pickup_latitude or 0),
             "pickup_longitude": float(order.pickup_longitude or 0),
-            "status": order.status
+            "status": order.status,
+            "offer_expires_in": offer_expires_in,
         })

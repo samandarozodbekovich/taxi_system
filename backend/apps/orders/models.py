@@ -74,6 +74,9 @@ class Order(models.Model):
         max_length=20, choices=STATUS_CHOICES, default='SEARCHING', db_index=True
     )
     
+    # How many waves of offers were sent in the current search (tasks.dispatch_new_order)
+    dispatch_wave = models.PositiveSmallIntegerField(default=0)
+
     # Audit fields (for tracking)
     searching_started_at = models.DateTimeField(auto_now_add=True)
     accepted_at = models.DateTimeField(null=True, blank=True)

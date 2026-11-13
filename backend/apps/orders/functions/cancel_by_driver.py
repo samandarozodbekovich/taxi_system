@@ -31,6 +31,8 @@ def cancel_by_driver(order_id, driver):
         order.accepted_at = None
         # The search timeout restarts from now (an older timeout task won't touch this order)
         order.searching_started_at = timezone.now()
+        # The new search starts again from the smallest radius
+        order.dispatch_wave = 0
         order.save()
         schedule_search_timeout(order.id)
         schedule_dispatch(order.id)

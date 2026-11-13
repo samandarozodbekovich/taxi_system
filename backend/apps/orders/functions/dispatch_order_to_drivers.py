@@ -8,14 +8,15 @@ from apps.dispatch.models import OrderDispatch
 from apps.drivers.models import Driver
 from services import get_table_to
 
-from .search_timeout_seconds import search_timeout_seconds
+from .offer_timeout_seconds import offer_timeout_seconds
 
-SEARCH_RADIUS_KM = 5
+# Search radius per dispatch wave: each next wave looks further (the last one repeats)
+WAVE_RADII_KM = (3, 5, 8, 12)
 MAX_DRIVERS = 5
 AVERAGE_SPEED_KMH = 40
 
 
-def dispatch_order_to_drivers(order):
+def dispatch_order_to_drivers(order, radius_km=WAVE_RADII_KM[0]):
     """Offer the order to the nearest drivers, sorted by real road ETA. Returns the new dispatches."""
     # Drivers this order was already offered to (unique_together('order', 'driver'))
     offered_driver_ids = OrderDispatch.objects.filter(order=order).values_list('driver_id', flat=True)
@@ -23,7 +24,7 @@ def dispatch_order_to_drivers(order):
     drivers = list(
         Driver.objects.filter(status="ONLINE", is_blocked=False, is_approved=True, wallet_record__balance__gte=0)
         .exclude(id__in=offered_driver_ids)
-        .filter(current_location__distance_lte=(order.pickup_location, D(km=SEARCH_RADIUS_KM)))
+        .filter(current_location__distance_lte=(order.pickup_location, D(km=radius_km)))
         .annotate(air_distance=Distance('current_location', order.pickup_location))
         .order_by('air_distance')[:MAX_DRIVERS]
     )
@@ -45,7 +46,7 @@ def dispatch_order_to_drivers(order):
         candidates.append((eta, distance, driver))
     candidates.sort(key=lambda c: c[0])
 
-    expires_at = timezone.now() + timedelta(seconds=search_timeout_seconds())
+    expires_at = timezone.now() + timedelta(seconds=offer_timeout_seconds())
     dispatches = []
     for _, distance, driver in candidates:
         # get_or_create: a concurrent dispatch may have created this driver meanwhile
