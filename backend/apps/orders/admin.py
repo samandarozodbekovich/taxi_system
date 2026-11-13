@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from .forms import OrderAdminForm
-from .functions import completed_orders_summary, notify_order_update
+from .functions import cancel_by_operator, complete_order, completed_orders_summary
 from .models import Order
 
 
@@ -12,6 +12,8 @@ class OrderAdmin(admin.ModelAdmin):
     # No list_editable for status: the changelist form would bypass OrderAdminForm.clean_status
     # Map fields are excluded to avoid GDAL errors
     exclude = ['pickup_location', 'destination_location', 'route_geometry']
+    # Changing the driver by hand would leave the old one BUSY and the new one free
+    readonly_fields = ['driver', 'dispatch_wave']
 
     def changelist_view(self, request, extra_context=None):
         response = super().changelist_view(request, extra_context)
@@ -20,7 +22,17 @@ class OrderAdmin(admin.ModelAdmin):
         return response
 
     def save_model(self, request, obj, form, change):
+        new_status = obj.status
+        status_changed = change and 'status' in form.changed_data
+        if status_changed:
+            # Save the other edits first, then change the status through the same functions the
+            # apps use - so completing charges the commission and canceling frees the driver
+            obj.status = form.initial['status']
         super().save_model(request, obj, form, change)
-        if change and 'status' in form.changed_data:
-            # Status is already saved (validated by clean_status) - notify the client
-            notify_order_update(obj.id, {'status': obj.status})
+
+        if status_changed:
+            if new_status == 'COMPLETED':
+                complete_order(obj.id, obj.driver)
+            elif new_status == 'CANCELED':
+                cancel_by_operator(obj.id, obj.cancel_reason)
+            obj.refresh_from_db()

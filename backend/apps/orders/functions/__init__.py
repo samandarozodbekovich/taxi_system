@@ -4,6 +4,7 @@ from .calculate_trip_route import calculate_trip_route
 from .calculate_waiting_price import calculate_waiting_price
 from .cancel_by_client import cancel_by_client
 from .cancel_by_driver import cancel_by_driver
+from .cancel_by_operator import cancel_by_operator
 from .complete_order import complete_order
 from .completed_orders_summary import completed_orders_summary
 from .create_order import create_order

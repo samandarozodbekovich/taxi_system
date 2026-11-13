@@ -2,6 +2,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.dispatch.models import OrderDispatch
+from apps.drivers.models import Driver
 
 from .get_locked_order import get_locked_order
 from .notify_order_update import notify_order_update
@@ -23,9 +24,10 @@ def cancel_by_client(order_id, client, cancel_reason=None):
                 is_accepted=False, is_rejected=True, responded_at=timezone.now()
             )
 
-        if order.driver:
-            order.driver.status = "ONLINE"
-            order.driver.save(update_fields=['status', 'updated_at'])
+        if order.driver_id:
+            # A single UPDATE instead of saving a stale Driver object, which could overwrite
+            # a change made meanwhile (same as complete_order)
+            Driver.objects.filter(id=order.driver_id).update(status="ONLINE", updated_at=timezone.now())
             order.driver = None
 
         order.transition_to("CANCELED")
