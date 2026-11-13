@@ -29,7 +29,9 @@ class Order(models.Model):
         'SEARCHING':   {'ACCEPTED', 'CANCELED', 'NO_DRIVER'},
         'ACCEPTED':    {'WAITING', 'SEARCHING', 'CANCELED'},       # SEARCHING - the driver canceled
         'WAITING':     {'IN_PROGRESS', 'SEARCHING', 'CANCELED'},
-        'IN_PROGRESS': {'COMPLETED', 'SEARCHING', 'CANCELED'},
+        # The client is in the car: no re-search, and only an operator (admin) may cancel -
+        # otherwise client and driver could cancel mid-trip together to skip the commission
+        'IN_PROGRESS': {'COMPLETED', 'CANCELED'},
         'NO_DRIVER':   {'CANCELED'},
         'COMPLETED':   set(),
         'CANCELED':    set(),

@@ -12,6 +12,9 @@ def cancel_by_client(order_id, client, cancel_reason=None):
         order = get_locked_order(order_id)
         if order.client != client:
             raise ValueError("You are not allowed to cancel this order.")
+        # IN_PROGRESS -> CANCELED is left to the operator (see Order.ALLOWED_TRANSITIONS)
+        if order.status == "IN_PROGRESS":
+            raise ValueError("The trip has already started. Contact support to cancel it.")
         if not order.can_transition_to("CANCELED"):
             raise ValueError("The order is already finished or canceled.")
 

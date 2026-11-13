@@ -39,6 +39,13 @@ class ClientOrderAuthTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.status, "CANCELED")
 
+    def test_client_cannot_cancel_trip_in_progress(self):
+        order = make_order(self.alice, "IN_PROGRESS")
+        response = self.api.post(f"/api/orders/{order.id}/cancel/", {}, format="json", **self.tma(2001))
+        self.assertEqual(response.status_code, 400)
+        order.refresh_from_db()
+        self.assertEqual(order.status, "IN_PROGRESS")
+
     def test_active_order_is_resolved_from_init_data(self):
         order = make_order(self.alice)
         self.assertEqual(self.api.get("/api/orders/active/", **self.tma(2001)).data["id"], order.id)

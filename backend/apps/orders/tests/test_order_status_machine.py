@@ -22,5 +22,8 @@ class OrderStatusMachineTests(SimpleTestCase):
             for target in ("SEARCHING", "ACCEPTED", "IN_PROGRESS", "CANCELED"):
                 self.assertFalse(Order(status=final).can_transition_to(target))
 
+    def test_in_progress_cannot_go_back_to_searching(self):
+        self.assertFalse(Order(status="IN_PROGRESS").can_transition_to("SEARCHING"))
+
     def test_order_number_from_id(self):
         self.assertEqual(order_number_for(42), "TX-000042")

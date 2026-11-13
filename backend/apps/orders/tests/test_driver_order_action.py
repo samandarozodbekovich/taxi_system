@@ -54,6 +54,11 @@ class DriverOrderActionTests(TestCase):
         self.assertEqual(self.action(order, "complete", self.other).status_code, 400)
         self.assert_status(order, "IN_PROGRESS")
 
+    def test_driver_cannot_cancel_trip_in_progress(self):
+        order = make_order(self.client_obj, "IN_PROGRESS", self.driver)
+        self.assertEqual(self.action(order, "cancel", self.driver).status_code, 400)
+        self.assert_status(order, "IN_PROGRESS")
+
     def test_complete_charges_commission_atomically(self):
         order = make_order(self.client_obj, "IN_PROGRESS", self.driver)
         self.assertEqual(self.action(order, "complete", self.driver).status_code, 200)
