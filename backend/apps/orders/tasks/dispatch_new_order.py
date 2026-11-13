@@ -15,10 +15,9 @@ def dispatch_new_order(order_id):
     previous wave rejected, and when the previous wave's offers expired (scheduled below).
     """
     # orders.functions imports this task - import lazily to avoid a circular import
-    from apps.drivers.functions import notify_drivers_new_order
     from apps.orders.functions import (
         dispatch_order_to_all_online, dispatch_order_to_drivers, has_open_offers,
-        offer_timeout_seconds, schedule_dispatch,
+        offer_timeout_seconds, schedule_dispatch, send_order_offers_in_batches,
     )
     from apps.orders.functions.dispatch_order_to_drivers import WAVE_RADII_KM
 
@@ -44,5 +43,5 @@ def dispatch_new_order(order_id):
         schedule_dispatch(order_id, countdown=offer_timeout_seconds() + NEXT_WAVE_MARGIN_SECONDS)
 
     # Telegram is slow - send after the lock is released
-    notify_drivers_new_order(order, [d.driver for d in dispatches])
+    send_order_offers_in_batches(order_id, [d.driver_id for d in dispatches])
     return f"Order {order_id}: wave {order.dispatch_wave}, offered to {len(dispatches)} driver(s)."

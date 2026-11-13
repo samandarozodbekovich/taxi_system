@@ -26,4 +26,5 @@ from .reject_by_driver import reject_by_driver
 from .schedule_dispatch import schedule_dispatch
 from .schedule_search_timeout import schedule_search_timeout
 from .search_timeout_seconds import search_timeout_seconds
+from .send_order_offers_in_batches import send_order_offers_in_batches
 from .update_status import update_status
