@@ -11,13 +11,8 @@
 		-Server
 	}
 
-	# Uploaded files (driver photos) from the shared media volume
-	handle_path /media/* {
-		root * /srv/media
-		file_server
-	}
-
-	# Django: HTTP, WebSocket and static files (WhiteNoise).
+	# Django: HTTP, WebSocket, static files (WhiteNoise) and /media/ - driver photos are
+	# served by Django to admin staff only, so Caddy must not serve the media volume itself.
 	# Caddy sets X-Forwarded-For / X-Forwarded-Proto, so DJANGO_NUM_PROXIES=1.
 	reverse_proxy backend:8000
 }
