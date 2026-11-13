@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core import signing
 from rest_framework.exceptions import AuthenticationFailed
 
@@ -9,7 +10,9 @@ from .create_driver_token import TOKEN_MAX_AGE, TOKEN_SALT
 def driver_from_token(token):
     """Verify the token and return the driver (shared by HTTP and WebSocket)."""
     try:
-        payload = signing.loads(token, salt=TOKEN_SALT, max_age=TOKEN_MAX_AGE)
+        payload = signing.loads(
+            token, key=settings.DRIVER_TOKEN_SECRET_KEY, salt=TOKEN_SALT, max_age=TOKEN_MAX_AGE
+        )
     except signing.SignatureExpired:
         raise AuthenticationFailed("Token has expired. Please log in again.")
     except signing.BadSignature:

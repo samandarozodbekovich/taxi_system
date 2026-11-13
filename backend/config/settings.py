@@ -25,6 +25,10 @@ def env_required(name):
 # Secrets come only from .env - no defaults in code.
 # (The previously hard-coded SECRET_KEY is still in git history; don't use it.)
 SECRET_KEY = env_required("DJANGO_SECRET_KEY")
+# Separate keys, so one leaked or rotated key doesn't affect the others. Rotating
+# DRIVER_TOKEN_SECRET_KEY logs every driver out. Unset - falls back to SECRET_KEY.
+DRIVER_TOKEN_SECRET_KEY = os.getenv("DRIVER_TOKEN_SECRET_KEY") or SECRET_KEY
+CHANNELS_ENCRYPTION_KEY = os.getenv("CHANNELS_ENCRYPTION_KEY") or SECRET_KEY
 
 # Defaults to production mode. For local development set DJANGO_DEBUG=True in .env.
 DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() in ("1", "true", "yes")
@@ -126,7 +130,7 @@ CHANNEL_LAYERS = {
         "CONFIG": {
             "hosts": [(REDIS_HOST, REDIS_PORT)],
             "expiry": 3600,
-            "symmetric_encryption_keys": [SECRET_KEY], 
+            "symmetric_encryption_keys": [CHANNELS_ENCRYPTION_KEY],
         },
     },
 }

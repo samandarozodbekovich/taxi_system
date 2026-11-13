@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core import signing
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
@@ -33,8 +34,13 @@ class DriverLogoutTests(TestCase):
 
     def test_token_without_version_is_rejected(self):
         # Tokens issued before token_version existed
-        old = signing.dumps({"driver_id": self.driver.id}, salt=TOKEN_SALT)
+        old = signing.dumps({"driver_id": self.driver.id}, key=settings.DRIVER_TOKEN_SECRET_KEY, salt=TOKEN_SALT)
         self.assertEqual(self.wallet({"HTTP_AUTHORIZATION": f"Bearer {old}"}).status_code, 401)
+
+    def test_rotating_token_key_logs_everyone_out(self):
+        headers = auth_header(self.driver)
+        with self.settings(DRIVER_TOKEN_SECRET_KEY="rotated-key"):
+            self.assertEqual(self.wallet(headers).status_code, 401)
 
     def test_token_still_valid_without_logout(self):
         token = create_driver_token(self.driver)
