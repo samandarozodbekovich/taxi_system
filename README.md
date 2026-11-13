@@ -10,7 +10,7 @@ A taxi ordering platform built on Telegram:
 ## How an order flows
 
 1. The client orders in the Mini App → `POST /api/orders/create/` returns immediately.
-2. Celery (`dispatch_new_order`) finds the 5 nearest online drivers (PostGIS + one OSRM table request), creates offers (`OrderDispatch`) and sends them a Telegram message. If nobody is nearby, every online driver gets the offer. When the offers expire (`DRIVER_OFFER_TIMEOUT_SECONDS`) or all of those drivers reject, the next wave goes to drivers not offered yet, with a wider radius (3 → 5 → 8 → 12 km).
+2. Celery (`dispatch_new_order`) finds the 5 nearest online drivers (PostGIS + one OSRM table request), creates offers (`OrderDispatch`) and sends them a Telegram message. A wave whose radius holds nobody new widens at once (3 → 5 → 8 → 12 km); only if nobody is within 12 km (e.g. locations unknown) does every online driver get the offer. When the offers expire (`DRIVER_OFFER_TIMEOUT_SECONDS`) or all of those drivers reject, the next wave goes to drivers not offered yet, with a wider radius (3 → 5 → 8 → 12 km).
 3. The driver accepts in the panel (only offered drivers can) → `ACCEPTED` → `WAITING` → `IN_PROGRESS` → `COMPLETED`. The client sees each step and the driver's position over WebSocket.
 4. On completion the commission is charged from the driver's wallet; the referral bonus is paid if this was an invited client's first trip.
 5. If nobody accepts within `ORDER_SEARCH_TIMEOUT_SECONDS`, Celery marks the order `NO_DRIVER`.

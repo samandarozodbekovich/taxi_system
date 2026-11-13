@@ -45,3 +45,10 @@ class SendOrderOffersTests(TestCase):
         self.order.dispatches.filter(driver_id=driver_ids[0]).update(is_rejected=True)
         send_order_offers(self.order.id, driver_ids)
         self.assertEqual([d.id for d in notify.call_args.args[1]], [driver_ids[1]])
+
+    def test_expired_offers_are_not_sent(self, notify):
+        # A batch delayed past the offer timeout must not invite a driver who can't accept any more
+        driver_ids = self.make_offered_drivers(2)
+        self.order.dispatches.filter(driver_id=driver_ids[0]).update(expires_at=self.order.created_at)
+        send_order_offers(self.order.id, driver_ids)
+        self.assertEqual([d.id for d in notify.call_args.args[1]], [driver_ids[1]])

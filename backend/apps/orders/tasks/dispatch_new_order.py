@@ -34,10 +34,20 @@ def dispatch_new_order(order_id):
 
         order.dispatch_wave += 1
         order.save(update_fields=["dispatch_wave", "updated_at"])
-        radius_km = WAVE_RADII_KM[min(order.dispatch_wave, len(WAVE_RADII_KM)) - 1]
+        first_radius = min(order.dispatch_wave, len(WAVE_RADII_KM)) - 1
 
-        # Nobody nearby (e.g. driver locations unknown) - offer it to every online driver
-        dispatches = dispatch_order_to_drivers(order, radius_km) or dispatch_order_to_all_online(order)
+        # Start at this wave's radius and widen at once if it holds nobody new - an empty
+        # ring shouldn't cost the client a whole offer timeout
+        dispatches = []
+        for radius_km in WAVE_RADII_KM[first_radius:]:
+            dispatches = dispatch_order_to_drivers(order, radius_km)
+            if dispatches:
+                break
+        else:
+            # Nobody within the widest radius (e.g. driver locations unknown) - offer it to
+            # every online driver. Only here: falling back on an empty small ring would skip
+            # the waves and send the order across the whole city.
+            dispatches = dispatch_order_to_all_online(order)
         # Next wave when these offers expire; stops once the order leaves SEARCHING
         # (accepted, canceled, or NO_DRIVER from expire_order_search)
         schedule_dispatch(order_id, countdown=offer_timeout_seconds() + NEXT_WAVE_MARGIN_SECONDS)
