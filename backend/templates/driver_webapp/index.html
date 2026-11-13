@@ -135,6 +135,17 @@
         margin-top: 2px;
     }
 
+    .logout-link {
+        background: none;
+        border: none;
+        padding: 2px 0 0;
+        color: #999;
+        font-family: var(--font-body);
+        font-size: 12px;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+
     .status-toggle {
         display: flex;
         align-items: center;
@@ -427,6 +438,7 @@
     <div class="driver-info">
         <div class="driver-name" id="driverNameTop">—</div>
         <div class="driver-car" id="driverCarTop">—</div>
+        <button class="logout-link" onclick="logout()">Log out</button>
     </div>
     <button class="status-toggle offline" id="statusBtn" onclick="toggleStatus()">
         <div class="status-dot"></div>
@@ -552,6 +564,17 @@
         document.getElementById('orderCard').classList.remove('visible');
         document.getElementById('activeOrderCard').style.display = 'none';
         if (msg) showLoginError(msg);
+    }
+
+    // Revokes the token on the server (bot session too), so a copied token stops working
+    async function logout() {
+        if (!driverData || !confirm('Log out of the panel and the bot?')) return;
+        try {
+            await apiFetch('/api/drivers/logout/', { method: 'POST' });
+        } catch (e) {
+            // 401 already logs out; a network error still clears the local session
+        }
+        forceRelogin();
     }
 
     // ── LOGIN ──

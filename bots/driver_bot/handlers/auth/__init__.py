@@ -1,3 +1,4 @@
+from .cmd_logout import cmd_logout
 from .cmd_start import cmd_start
 from .process_login import process_login
 from .process_password import process_password
@@ -5,6 +6,7 @@ from .register import get_car_color, get_car_model, get_car_number, get_full_nam
 
 from aiogram import Router
 
+from .cmd_logout import router as logout_router
 from .cmd_start import router as start_router
 from .process_login import router as login_router
 from .process_password import router as password_router
@@ -13,6 +15,8 @@ from .register import router as register_router
 # Combine all routers into one
 router = Router()
 router.include_router(start_router)
+# Before the FSM-state handlers, so /logout works mid-login too
+router.include_router(logout_router)
 router.include_router(login_router)
 router.include_router(register_router)
 router.include_router(password_router)

@@ -18,6 +18,9 @@ def driver_from_token(token):
     driver = Driver.objects.filter(id=payload.get("driver_id")).first()
     if driver is None:
         raise AuthenticationFailed("Driver not found.")
+    # Logged out / password changed since the token was issued
+    if payload.get("v") != driver.token_version:
+        raise AuthenticationFailed("Session has ended. Please log in again.")
     # Blocking or un-approving a driver invalidates their existing tokens immediately
     if driver.is_blocked:
         raise AuthenticationFailed("Your account is blocked.")

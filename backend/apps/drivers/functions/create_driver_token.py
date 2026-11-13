@@ -7,4 +7,5 @@ TOKEN_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
 
 def create_driver_token(driver):
     """Token issued on login; sent back as "Authorization: Bearer <token>"."""
-    return signing.dumps({"driver_id": driver.id}, salt=TOKEN_SALT)
+    # "v" ties the token to the current token_version - bumping it revokes the token
+    return signing.dumps({"driver_id": driver.id, "v": driver.token_version}, salt=TOKEN_SALT)

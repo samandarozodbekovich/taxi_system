@@ -5,3 +5,4 @@ from .generate_driver_code import generate_driver_code
 from .new_order_message import new_order_message
 from .notify_drivers_new_order import notify_drivers_new_order
 from .record_failed_login import record_failed_login
+from .revoke_driver_tokens import revoke_driver_tokens

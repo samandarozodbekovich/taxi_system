@@ -11,6 +11,9 @@ class Driver(models.Model):
 
     driver_code = models.CharField(max_length=10, unique=True, db_index=True)
     password_hash = models.CharField(max_length=255)
+    # Part of every login token; incrementing it ends all of the driver's sessions
+    # (logout, password change, admin action) - see create_driver_token / driver_from_token
+    token_version = models.PositiveIntegerField(default=0)
     full_name = models.CharField(max_length=255)
     phone_number = models.CharField(max_length=20, db_index=True)
     telegram_id = models.BigIntegerField(
