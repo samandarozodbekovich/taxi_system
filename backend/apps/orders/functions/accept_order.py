@@ -4,6 +4,7 @@ from django.utils import timezone
 from apps.dispatch.models import OrderDispatch
 from apps.drivers.models import Driver
 
+from .driver_active_order import driver_active_order
 from .get_locked_order import get_locked_order
 from .is_offered_to_driver import is_offered_to_driver
 from .notify_order_update import notify_order_update
@@ -24,7 +25,8 @@ def accept_order(order_id, driver):
             raise ValueError("Your account is blocked.")
         if not driver.is_approved:
             raise ValueError("Your account has not been approved yet.")
-        if driver.status == "BUSY":
+        # Check the orders too, not only the status - the status may be out of sync (e.g. changed in the admin)
+        if driver.status == "BUSY" or driver_active_order(driver) is not None:
             raise ValueError("You already have an active order.")
 
         order.driver = driver

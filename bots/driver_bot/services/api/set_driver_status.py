@@ -19,6 +19,10 @@ async def set_driver_status(driver_id: int, is_online: bool, token: str) -> dict
                 if response.status == 401:
                     return {"success": False, "auth_failed": True,
                             "message": "Session expired. Press /start to log in again."}
+                if response.status == 409:
+                    # E.g. the driver is on a trip - the backend explains why
+                    data = await response.json()
+                    return {"success": False, "message": data.get("error", "Could not change the status")}
                 return {"success": False, "message": "Could not change the status"}
     except Exception as e:
         logger.error(f"Status API error: {e}")
