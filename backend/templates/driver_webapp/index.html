@@ -474,7 +474,7 @@
     <div class="timer-bar">
         <div class="timer-fill" id="timerFill"></div>
     </div>
-    <div class="order-timer" id="timerText">60 seconds</div>
+    <div class="order-timer" id="timerText"></div>
 
     <div class="order-btns">
         <button class="btn-accept" onclick="acceptOrder()">✅ Accept</button>
@@ -543,6 +543,7 @@
         driverData = null;
         stopLocationTracking();
         stopOrderPolling();
+        closeOrderSocket();
         clearInterval(timerInterval);
         document.getElementById('loginScreen').style.display = '';
         document.getElementById('topBar').style.display = 'none';
@@ -732,8 +733,8 @@
             document.getElementById('noOrderMsg').style.display = 'none';
             document.getElementById('orderCard').classList.add('visible');
 
-            // 60-second timer
-            startTimer(60);
+            // Count down from the server's offer expiry, so the panel and Telegram agree
+            startTimer(order.offer_expires_in != null ? order.offer_expires_in : DEFAULT_OFFER_SECONDS);
         } catch (e) {
             console.error('Order detail error:', e);
         }
@@ -752,12 +753,21 @@
     }
 
     // ── TIMER ──
+    // Used only if the server didn't send offer_expires_in
+    var DEFAULT_OFFER_SECONDS = 45;
+
     function startTimer(seconds) {
+        clearInterval(timerInterval);
+        if (seconds <= 0) {
+            rejectOrder();
+            return;
+        }
         var remaining = seconds;
         var fill = document.getElementById('timerFill');
         var text = document.getElementById('timerText');
 
         fill.style.width = '100%';
+        text.innerText = remaining + ' seconds';
 
         timerInterval = setInterval(function() {
             remaining--;
@@ -837,6 +847,85 @@
         card.style.display = 'block';
         document.getElementById('noOrderMsg').style.display = 'none';
         updateActiveCard(status);
+        connectOrderSocket(currentOrderId);
+    }
+
+    // The trip is over (finished, canceled by either side) — back to waiting for offers
+    function clearActiveOrder() {
+        closeOrderSocket();
+        document.getElementById('activeOrderCard').style.display = 'none';
+        document.getElementById('noOrderMsg').style.display = 'block';
+        currentOrderId = null;
+        currentOrderStatus = null;
+    }
+
+    // ── ORDER WEBSOCKET ──
+    // Lets the driver see at once that the client canceled, instead of driving on
+    // and getting an error on the next button press
+    var WS_RECONNECT_MS = 3000;
+
+    function connectOrderSocket(orderId) {
+        closeOrderSocket();
+        if (!orderId || !driverData) return;
+        var protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        // Browsers can't add headers to a WebSocket — the login token goes in the query string
+        var socket = new WebSocket(protocol + '://' + window.location.host + '/ws/order/' + orderId +
+            '/?token=' + encodeURIComponent(driverData.token));
+        ws = socket;
+
+        socket.onopen = function() {
+            // Events sent while we were disconnected are lost — re-check the order once
+            syncActiveOrder(orderId);
+        };
+
+        socket.onmessage = function(e) {
+            var payload = JSON.parse(e.data).order_data;
+            // Our own location updates also come through this group
+            if (!payload || payload.driver_location || String(orderId) !== String(currentOrderId)) return;
+
+            if (payload.status === 'CANCELED') {
+                clearActiveOrder();
+                alert('❌ The client canceled the order' + (payload.cancel_reason ? ': ' + payload.cancel_reason : '.'));
+            } else if (payload.status === 'COMPLETED' || payload.status === 'SEARCHING') {
+                // Finished or dropped on another device / by an operator
+                clearActiveOrder();
+            } else if (payload.status && payload.status !== currentOrderStatus) {
+                updateActiveCard(payload.status);
+            }
+        };
+
+        socket.onclose = function() {
+            if (ws !== socket) return;   // closed on purpose or replaced
+            ws = null;
+            // Connection dropped mid-trip (network, server restart) — reconnect
+            setTimeout(function() {
+                if (String(orderId) === String(currentOrderId) && ws === null) connectOrderSocket(orderId);
+            }, WS_RECONNECT_MS);
+        };
+    }
+
+    function closeOrderSocket() {
+        if (ws) {
+            var socket = ws;
+            ws = null;   // onclose sees ws !== socket and doesn't reconnect
+            socket.close();
+        }
+    }
+
+    async function syncActiveOrder(orderId) {
+        try {
+            var resp = await apiFetch('/api/orders/driver/active/');
+            if (!resp.ok || String(orderId) !== String(currentOrderId)) return;
+            var order = await resp.json();
+            if (!order.active || String(order.id) !== String(orderId)) {
+                clearActiveOrder();
+                alert('The order is no longer active (it was canceled).');
+            } else if (order.status !== currentOrderStatus) {
+                updateActiveCard(order.status);
+            }
+        } catch (e) {
+            console.warn('Active order sync error:', e);
+        }
     }
 
     function updateActiveCard(status) {
@@ -907,10 +996,7 @@
                 if (nextStatus) {
                     updateActiveCard(nextStatus);
                 } else {
-                    document.getElementById('activeOrderCard').style.display = 'none';
-                    document.getElementById('noOrderMsg').style.display = 'block';
-                    currentOrderId = null;
-                    currentOrderStatus = null;
+                    clearActiveOrder();
                 }
             } else {
                 var err = await resp.json().catch(function() { return {}; });
@@ -933,9 +1019,7 @@
                     action: 'cancel'
                 })
             });
-            document.getElementById('activeOrderCard').style.display = 'none';
-            document.getElementById('noOrderMsg').style.display = 'block';
-            currentOrderId = null;
+            clearActiveOrder();
         } catch (e) {
             console.error('Cancel error:', e);
         }
@@ -1034,6 +1118,10 @@
                     stopLocationTracking();    // Offline → stop tracking
                     stopOrderPolling();
                 }
+            } else {
+                // E.g. 409 — the driver is on a trip and stays BUSY
+                var err = await resp.json().catch(function() { return {}; });
+                alert(err.error || 'Could not change the status');
             }
         } catch (e) {
             console.error('Status error:', e);
