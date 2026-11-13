@@ -1,6 +1,3 @@
-from .show_wallet import show_wallet, router
-from .toggle_status import toggle_status, router
-
 from aiogram import Router
 
 from .my_trips import router as my_trips
