@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views_api import DriverLoginView, DriverLogoutView, DriverRegisterView, DriverStatusView
+from .views_api import DriverLoginView, DriverLogoutView, DriverMeView, DriverRegisterView, DriverStatusView
 
 from .views import driver_index, DriverLocationUpdateView
 
@@ -9,6 +9,7 @@ urlpatterns = [
     path("register/", DriverRegisterView.as_view()),
     path("login/", DriverLoginView.as_view()),
     path("logout/", DriverLogoutView.as_view()),
+    path("me/", DriverMeView.as_view()),
     path("<int:pk>/status/", DriverStatusView.as_view()), 
 
     # web app

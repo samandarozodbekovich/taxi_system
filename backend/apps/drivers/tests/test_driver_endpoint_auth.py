@@ -26,6 +26,13 @@ class DriverEndpointAuthTests(TestCase):
         self.other.refresh_from_db()
         self.assertEqual(self.other.status, "OFFLINE")
 
+    def test_me_returns_current_status(self):
+        Driver.objects.filter(id=self.driver.id).update(status="ONLINE")  # e.g. changed in the panel
+        response = self.api.get("/api/drivers/me/", **auth_header(self.driver))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["id"], self.driver.id)
+        self.assertTrue(response.data["is_online"])
+
     def test_cannot_update_other_drivers_location(self):
         response = self.api.post(
             f"/api/drivers/{self.other.id}/location/", {"latitude": 41.3, "longitude": 69.2},

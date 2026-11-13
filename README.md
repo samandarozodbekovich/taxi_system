@@ -140,6 +140,7 @@ Authentication: client - `Authorization: tma <initData>` (Mini App) or `X-Bot-Se
 | POST | `/api/drivers/register/` | driver bot | Driver registration (needs admin approval) |
 | POST | `/api/drivers/login/` | anyone | Driver login → token (lockout per code + Telegram user / IP) |
 | POST | `/api/drivers/logout/` | driver | End every session (bot and panel) |
+| GET | `/api/drivers/me/` | driver | Profile and current status |
 | POST | `/api/drivers/<id>/status/` | driver | Online / offline |
 | POST | `/api/drivers/<id>/location/` | driver | GPS position |
 | GET | `/api/orders/available/` | driver | Open offers |
