@@ -125,7 +125,7 @@ Caddy sits in front on ports 80/443: it gets a Let's Encrypt certificate for `DO
 
 ## API
 
-Authentication: client - `Authorization: tma <initData>` (Mini App) or `X-Bot-Secret` + `client_telegram_id` (client bot); driver bot - `X-Bot-Secret`; driver - `Authorization: Bearer <token>` from login.
+Authentication: client - `Authorization: tma <initData>` (Mini App) or `X-Bot-Secret` + `client_telegram_id` (client bot); driver bot - `X-Bot-Secret`, then `Authorization: Bearer <token>` from login; driver panel - the HttpOnly `driver_token` cookie set by login (the token never reaches JavaScript), plus `X-Requested-With: driver-panel` on changing requests (CSRF). WebSockets are accepted only from pages on `DJANGO_ALLOWED_HOSTS`.
 
 | Method | Path | Who | What |
 |---|---|---|---|
@@ -150,4 +150,4 @@ Authentication: client - `Authorization: tma <initData>` (Mini App) or `X-Bot-Se
 | GET | `/api/orders/driver/history/` | driver | Latest trips |
 | GET | `/api/wallet/info/` | driver | Balance and totals |
 | WS | `/ws/order/<id>/?tma=<initData>` | client | Live order status and driver position |
-| WS | `/ws/order/<id>/?token=<token>` | driver | Live status of the driver's current order |
+| WS | `/ws/order/<id>/` + `driver_token` cookie | driver | Live status of the driver's current order |

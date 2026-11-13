@@ -1,15 +1,16 @@
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
-from channels.routing import URLRouter
 from channels.testing import WebsocketCommunicator
+from django.conf import settings
 from django.test import TransactionTestCase, override_settings
 
-from apps.drivers.functions import create_driver_token
+from apps.drivers.functions import DRIVER_TOKEN_COOKIE, create_driver_token
 from apps.drivers.tests.constants import LOCMEM_CACHE
 from apps.drivers.tests.functions import make_driver
 from apps.orders.models import Order
-from apps.orders.routing import websocket_urlpatterns
+
+from config.asgi import application
 
 from .functions import make_client, make_order
 
@@ -24,9 +25,30 @@ class OrderConsumerTests(TransactionTestCase):
         self.driver = make_driver("DRV-AAAAA1", status="BUSY")
         self.order = make_order(make_client(9101), "ACCEPTED", self.driver)
 
-    def connect_driver(self):
-        token = create_driver_token(self.driver)
-        return WebsocketCommunicator(URLRouter(websocket_urlpatterns), f"/ws/order/{self.order.id}/?token={token}")
+    def connect_driver(self, origin=None, token=None):
+        # The full ASGI app (origin check + cookie middleware), as the browser panel connects
+        token = token or create_driver_token(self.driver)
+        origin = origin or f"http://{settings.ALLOWED_HOSTS[0]}"
+        headers = [(b"origin", origin.encode()), (b"cookie", f"{DRIVER_TOKEN_COOKIE}={token}".encode())]
+        return WebsocketCommunicator(application, f"/ws/order/{self.order.id}/", headers=headers)
+
+    def test_other_site_cannot_connect_with_drivers_cookie(self):
+        async def scenario():
+            connected, _ = await self.connect_driver(origin="https://evil.example").connect()
+            self.assertFalse(connected)
+
+        async_to_sync(scenario)()
+
+    def test_token_in_url_is_not_accepted(self):
+        async def scenario():
+            ws = WebsocketCommunicator(
+                application, f"/ws/order/{self.order.id}/?token={create_driver_token(self.driver)}",
+                headers=[(b"origin", f"http://{settings.ALLOWED_HOSTS[0]}".encode())],
+            )
+            connected, _ = await ws.connect()
+            self.assertFalse(connected)
+
+        async_to_sync(scenario)()
 
     def test_snapshot_on_connect(self):
         async def scenario():

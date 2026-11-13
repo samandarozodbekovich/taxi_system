@@ -17,11 +17,26 @@ class DriverLoginTests(TestCase):
     def login(self, code, password):
         return self.api.post("/api/drivers/login/", {"driver_code": code, "password": password}, format="json")
 
-    def test_login_returns_token(self):
+    def test_panel_login_sets_httponly_cookie_not_token(self):
         make_driver()
         response = self.login("DRV-TEST01", "secret123")
         self.assertEqual(response.status_code, 200)
+        # The token never reaches JavaScript
+        self.assertNotIn("token", response.data)
+        cookie = response.cookies["driver_token"]
+        self.assertTrue(cookie.value)
+        self.assertTrue(cookie["httponly"])
+
+    @override_settings(BOT_API_SECRET="test-bot-secret")
+    def test_bot_login_returns_token(self):
+        make_driver()
+        response = self.api.post(
+            "/api/drivers/login/", {"driver_code": "DRV-TEST01", "password": "secret123"},
+            format="json", HTTP_X_BOT_SECRET="test-bot-secret", HTTP_X_TELEGRAM_ID="111",
+        )
+        self.assertEqual(response.status_code, 200)
         self.assertIn("token", response.data)
+        self.assertNotIn("driver_token", response.cookies)
 
     def test_unknown_code_and_wrong_password_give_same_message(self):
         make_driver()

@@ -528,18 +528,19 @@
     var API = '';   // Django same origin
 
     // ── AUTH ──
-    // The login token is added to every driver request in the "Authorization: Bearer" header.
-    // The server resolves the driver from this token (it does not trust driver_id in the body).
+    // The login token is in an HttpOnly cookie set by the server: the browser sends it with
+    // every request, and this script (or anything injected into the page) can't read it.
+    // The custom header proves the request comes from this page (protects against CSRF).
+    var PANEL_HEADERS = { 'X-Requested-With': 'driver-panel' };
+
     async function apiFetch(path, options) {
         options = options || {};
-        var headers = options.headers || {};
-        if (driverData && driverData.token) {
-            headers['Authorization'] = 'Bearer ' + driverData.token;
-        }
+        var headers = Object.assign({}, PANEL_HEADERS, options.headers || {});
         if (options.body && !headers['Content-Type']) {
             headers['Content-Type'] = 'application/json';
         }
         options.headers = headers;
+        options.credentials = 'same-origin';
 
         var resp = await fetch(API + path, options);
         if (resp.status === 401) {
@@ -551,7 +552,6 @@
     }
 
     function forceRelogin(msg) {
-        localStorage.removeItem('driver');
         driverData = null;
         stopLocationTracking();
         stopOrderPolling();
@@ -592,6 +592,7 @@
         try {
             var resp = await fetch(API + '/api/drivers/login/', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': getCookie('csrftoken')
@@ -601,8 +602,8 @@
             var data = await resp.json();
 
             if (resp.ok) {
+                // Only the profile comes back; the token was set as an HttpOnly cookie
                 driverData = data;
-                localStorage.setItem('driver', JSON.stringify(data));
                 showMainScreen();
             } else {
                 var msg = data.non_field_errors
@@ -891,9 +892,8 @@
         closeOrderSocket();
         if (!orderId || !driverData) return;
         var protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        // Browsers can't add headers to a WebSocket — the login token goes in the query string
-        var socket = new WebSocket(protocol + '://' + window.location.host + '/ws/order/' + orderId +
-            '/?token=' + encodeURIComponent(driverData.token));
+        // The browser sends the HttpOnly token cookie with the handshake — no token in the URL
+        var socket = new WebSocket(protocol + '://' + window.location.host + '/ws/order/' + orderId + '/');
         // On connect the server first sends the order's current state (catches up on missed events)
         ws = socket;
 
@@ -1055,15 +1055,20 @@
     }
 
     // ── INIT ──
-    window.addEventListener('DOMContentLoaded', function() {
-        var saved = null;
-        try { saved = JSON.parse(localStorage.getItem('driver') || 'null'); } catch (e) {}
-        // Data saved by an older version has no token — require logging in again
-        if (saved && saved.token) {
-            driverData = saved;
-            showMainScreen();
-        } else if (saved) {
-            localStorage.removeItem('driver');
+    window.addEventListener('DOMContentLoaded', async function() {
+        // Older versions kept the token in localStorage — remove it from this device
+        try { localStorage.removeItem('driver'); } catch (e) {}
+
+        // Logged in = the token cookie is still valid; the server says who we are.
+        // Plain fetch, not apiFetch: no session yet is normal here, not "session expired"
+        try {
+            var resp = await fetch(API + '/api/drivers/me/', { credentials: 'same-origin', headers: PANEL_HEADERS });
+            if (resp.ok) {
+                driverData = await resp.json();
+                showMainScreen();
+            }
+        } catch (e) {
+            showLoginError('Cannot reach the server');
         }
     });
     var locationWatcher = null;

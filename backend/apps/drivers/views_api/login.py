@@ -4,7 +4,10 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.drivers.functions import create_driver_token, failed_login_attempts_key, login_source, record_failed_login
+from apps.clients.functions import bot_secret_is_valid
+from apps.drivers.functions import (
+    create_driver_token, failed_login_attempts_key, login_source, record_failed_login, set_driver_token_cookie,
+)
 from apps.drivers.serializers import DriverLoginSerializer, DriverProfileSerializer
 from apps.drivers.throttling import DriverLoginThrottle
 
@@ -43,4 +46,10 @@ class DriverLoginView(APIView):
 
         cache.delete_many(list(fail_limits))
         driver = serializer.validated_data['driver']
-        return Response({**DriverProfileSerializer(driver).data, 'token': create_driver_token(driver)})
+        profile = DriverProfileSerializer(driver).data
+        token = create_driver_token(driver)
+        # The driver bot (server side) keeps the token itself. The panel gets it only as an
+        # HttpOnly cookie - JavaScript, and so an injected script, never sees it
+        if bot_secret_is_valid(request):
+            return Response({**profile, 'token': token})
+        return set_driver_token_cookie(Response(profile), request, token)
