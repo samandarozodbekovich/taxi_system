@@ -3,6 +3,9 @@ from rest_framework import serializers
 from ..models import Order
 from ..functions import create_order
 
+# Longer text is not an address (and would bloat Telegram messages to drivers)
+MAX_ADDRESS_LENGTH = 300
+
 class OrderCreateSerializer(serializers.ModelSerializer):
     # Field names match the names the bot sends
     pickup_latitude = serializers.FloatField(write_only=True)
@@ -26,16 +29,16 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         if not (-90 <= p_lat <= 90) or not (-180 <= p_lon <= 180):
             raise serializers.ValidationError("Invalid coordinates.")
 
-        # Validate the address
+        # Validate the address. Characters like # & % are allowed - real addresses use them
+        # ("Building 4, apt #12"); addresses are escaped where they are shown instead
+        # (html.escape in Telegram messages, innerText in the Mini Apps, the admin escapes too)
         address = attrs.get('pickup_address', '')
         if not address.strip():
             raise serializers.ValidationError("Pickup address must not be empty.")
-        
-        # Reject special characters
-        special_chars = ['#', '$', '%', '&', '*']
-        if any(char in address for char in special_chars):
-            raise serializers.ValidationError("The address contains forbidden characters.")
-        
+        for field in ('pickup_address', 'destination_address'):
+            if len(attrs.get(field) or '') > MAX_ADDRESS_LENGTH:
+                raise serializers.ValidationError(f"The address is too long (max {MAX_ADDRESS_LENGTH} characters).")
+
         return attrs
 
     def create(self, validated_data):

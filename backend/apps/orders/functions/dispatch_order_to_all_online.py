@@ -4,6 +4,7 @@ from django.utils import timezone
 
 from apps.dispatch.models import OrderDispatch
 from apps.drivers.models import Driver
+from apps.wallet.models import MIN_BALANCE_TO_ACCEPT_ORDERS
 
 from .offer_timeout_seconds import offer_timeout_seconds
 
@@ -16,7 +17,7 @@ def dispatch_order_to_all_online(order):
     offered_driver_ids = OrderDispatch.objects.filter(order=order).values_list('driver_id', flat=True)
     drivers = Driver.objects.filter(
         status="ONLINE", is_blocked=False, is_approved=True,
-        wallet_record__balance__gte=0, telegram_id__isnull=False,
+        wallet_record__balance__gte=MIN_BALANCE_TO_ACCEPT_ORDERS, telegram_id__isnull=False,
     ).exclude(id__in=offered_driver_ids)
 
     expires_at = timezone.now() + timedelta(seconds=offer_timeout_seconds())

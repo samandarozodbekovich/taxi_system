@@ -3,6 +3,7 @@ from django.utils import timezone
 
 from apps.dispatch.models import OrderDispatch
 from apps.drivers.models import Driver
+from apps.wallet.models import DriverWallet
 
 from .driver_active_order import driver_active_order
 from .get_locked_order import get_locked_order
@@ -25,6 +26,10 @@ def accept_order(order_id, driver):
             raise ValueError("Your account is blocked.")
         if not driver.is_approved:
             raise ValueError("Your account has not been approved yet.")
+        # The balance may have dropped since the offer was sent (commission for another trip)
+        wallet = DriverWallet.objects.filter(driver=driver).first()
+        if wallet is None or not wallet.can_accept_order():
+            raise ValueError("Your balance is too low. Please top up to accept orders.")
         # Check the orders too, not only the status - the status may be out of sync (e.g. changed in the admin)
         if driver.status == "BUSY" or driver_active_order(driver) is not None:
             raise ValueError("You already have an active order.")

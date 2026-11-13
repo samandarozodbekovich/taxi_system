@@ -1,5 +1,10 @@
 from django.db import models
 
+# Lowest balance at which a driver still gets and may accept offers. Commission is charged
+# after the trip, so a new driver at 0 can work and the balance may go below 0 after a trip.
+# Used by DriverWallet.can_accept_order, the dispatch filters and accept_order.
+MIN_BALANCE_TO_ACCEPT_ORDERS = 0
+
 class DriverWallet(models.Model):
     driver = models.OneToOneField(
         'drivers.Driver', 
@@ -23,5 +28,5 @@ class DriverWallet(models.Model):
         return f"{self.driver.full_name} - Balance: {self.balance}"
 
     def can_accept_order(self):
-        """Can the driver accept orders? (The balance must be above 0)"""
-        return self.balance > 0
+        """Can the driver accept orders? (Same rule as the dispatch filters)"""
+        return self.balance >= MIN_BALANCE_TO_ACCEPT_ORDERS

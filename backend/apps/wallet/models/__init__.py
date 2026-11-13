@@ -1,2 +1,2 @@
-from .driver_wallet import DriverWallet
+from .driver_wallet import MIN_BALANCE_TO_ACCEPT_ORDERS, DriverWallet
 from .wallet_transaction import WalletTransaction

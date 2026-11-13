@@ -3,6 +3,8 @@ from rest_framework.test import APIClient
 
 from apps.drivers.tests.constants import LOCMEM_CACHE
 from apps.drivers.tests.functions import auth_header, make_driver
+from apps.wallet.models import DriverWallet
+from apps.wallet.models import DriverWallet
 
 from .functions import make_client, make_dispatch, make_order
 
@@ -46,6 +48,28 @@ class AcceptOrderTests(TestCase):
         make_dispatch(self.order, self.driver, is_rejected=True)
         self.assertEqual(self.accept().status_code, 400)
         self.assert_status("SEARCHING")
+
+    def test_cannot_accept_with_negative_balance(self):
+        make_dispatch(self.order, self.driver)
+        DriverWallet.objects.filter(driver=self.driver).update(balance=-1000)
+        self.assertEqual(self.accept().status_code, 400)
+        self.assert_status("SEARCHING")
+
+    def test_new_driver_with_zero_balance_can_accept(self):
+        make_dispatch(self.order, self.driver)
+        self.assertTrue(DriverWallet.objects.get(driver=self.driver).can_accept_order())
+        self.assertEqual(self.accept().status_code, 200)
+
+    def test_cannot_accept_with_negative_balance(self):
+        make_dispatch(self.order, self.driver)
+        DriverWallet.objects.filter(driver=self.driver).update(balance=-1000)
+        self.assertEqual(self.accept().status_code, 400)
+        self.assert_status("SEARCHING")
+
+    def test_new_driver_with_zero_balance_can_accept(self):
+        make_dispatch(self.order, self.driver)
+        self.assertTrue(DriverWallet.objects.get(driver=self.driver).can_accept_order())
+        self.assertEqual(self.accept().status_code, 200)
 
     def test_cannot_view_details_of_order_not_offered(self):
         self.assertEqual(self.detail().status_code, 403)
