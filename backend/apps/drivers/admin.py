@@ -1,12 +1,15 @@
 from django.contrib import admin
+from django.contrib.auth.hashers import make_password
 from django.db.models import F
 
+from .forms import DriverAdminForm
 from .functions import revoke_driver_tokens
 from .models import Driver
 
 
 @admin.register(Driver)
 class DriverAdmin(admin.ModelAdmin):
+    form = DriverAdminForm
     list_display = ['full_name', 'driver_code', 'phone_number', 'car_number', 'status', 'is_approved', 'is_blocked', 'current_latitude', 'current_longitude', 'created_at']
     list_filter = ['is_approved', 'status', 'is_blocked', 'created_at']
     list_editable = ['is_approved']
@@ -25,9 +28,12 @@ class DriverAdmin(admin.ModelAdmin):
         self.message_user(request, f"Sessions ended for {updated} driver(s).")
 
     def save_model(self, request, obj, form, change):
-        # A new password must log out whoever knew the old one
-        if change and 'password_hash' in form.changed_data:
-            obj.token_version = F('token_version') + 1
+        new_password = form.cleaned_data.get('new_password')
+        if new_password:
+            obj.password_hash = make_password(new_password)
+            # A new password must log out whoever knew the old one
+            if change:
+                obj.token_version = F('token_version') + 1
         super().save_model(request, obj, form, change)
         if not isinstance(obj.token_version, int):
             # Replace the F() expression with the saved number
