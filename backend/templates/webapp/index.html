@@ -741,10 +741,10 @@
 
         fetch('/api/orders/route/', {
             method: 'POST',
-            headers: {
+            headers: clientAuthHeaders({
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken')
-            },
+            }),
             body: JSON.stringify({
                 start_lat: startCoords[0],
                 start_lon: startCoords[1],

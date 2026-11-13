@@ -140,6 +140,8 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         # Driver login attempts per source: Telegram user for the driver bot, IP for the panel
         'driver_login': '30/min',
+        # Route + price previews per client (each moved map pin is one request)
+        'route': '60/min',
     },
     # Number of proxies in front of the server (ngrok/nginx - 1). Without it the IP came from a spoofable X-Forwarded-For.
     'NUM_PROXIES': int(os.getenv('DJANGO_NUM_PROXIES', '0')),

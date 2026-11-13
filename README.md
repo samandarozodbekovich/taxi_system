@@ -125,11 +125,11 @@ Caddy sits in front on ports 80/443: it gets a Let's Encrypt certificate for `DO
 
 ## API
 
-Authentication: client - `Authorization: tma <initData>` (Mini App) or `X-Bot-Secret` + `client_telegram_id` (client bot); driver - `Authorization: Bearer <token>` from login.
+Authentication: client - `Authorization: tma <initData>` (Mini App) or `X-Bot-Secret` + `client_telegram_id` (client bot); driver bot - `X-Bot-Secret`; driver - `Authorization: Bearer <token>` from login.
 
 | Method | Path | Who | What |
 |---|---|---|---|
-| POST | `/api/orders/route/` | anyone | Route and price between two points |
+| POST | `/api/orders/route/` | client | Route and price between two points (60/min per client) |
 | POST | `/api/orders/create/` | client | Create an order |
 | GET | `/api/orders/active/` | client | Current order |
 | GET | `/api/orders/history/` | client | Latest orders |
@@ -137,8 +137,9 @@ Authentication: client - `Authorization: tma <initData>` (Mini App) or `X-Bot-Se
 | GET | `/api/clients/bonus/` | client | Bonus balance and referral code |
 | GET | `/api/clients/check/<tg_id>/` | client bot | Look up a client |
 | POST | `/api/clients/register/` | client bot | Register a client |
-| POST | `/api/drivers/register/` | anyone | Driver registration (needs admin approval) |
-| POST | `/api/drivers/login/` | anyone | Driver login → token |
+| POST | `/api/drivers/register/` | driver bot | Driver registration (needs admin approval) |
+| POST | `/api/drivers/login/` | anyone | Driver login → token (lockout per code + Telegram user / IP) |
+| POST | `/api/drivers/logout/` | driver | End every session (bot and panel) |
 | POST | `/api/drivers/<id>/status/` | driver | Online / offline |
 | POST | `/api/drivers/<id>/location/` | driver | GPS position |
 | GET | `/api/orders/available/` | driver | Open offers |
@@ -148,3 +149,4 @@ Authentication: client - `Authorization: tma <initData>` (Mini App) or `X-Bot-Se
 | GET | `/api/orders/driver/history/` | driver | Latest trips |
 | GET | `/api/wallet/info/` | driver | Balance and totals |
 | WS | `/ws/order/<id>/?tma=<initData>` | client | Live order status and driver position |
+| WS | `/ws/order/<id>/?token=<token>` | driver | Live status of the driver's current order |

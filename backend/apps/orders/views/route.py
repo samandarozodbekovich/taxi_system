@@ -1,14 +1,17 @@
 from rest_framework import status
-from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from apps.clients.mixins import ClientAuthMixin
 from apps.orders.functions import calculate_estimate_price
 from services import get_route
 
 
-class RouteInfoView(APIView):
-    permission_classes = [AllowAny]
+class RouteInfoView(ClientAuthMixin, APIView):
+    # Only Mini App clients, and rate-limited per client - otherwise anyone could use our OSRM server for free
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'route'
 
     def post(self, request):
         try:
