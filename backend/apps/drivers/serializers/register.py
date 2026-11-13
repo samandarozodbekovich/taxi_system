@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
-from ..functions import generate_driver_code
 from ..models import Driver
 
 
@@ -35,8 +34,8 @@ class DriverRegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         password = validated_data.pop('password') 
 
+        # driver_code is generated in Driver.save()
         driver = Driver(
-            driver_code=generate_driver_code(),      
             password_hash=make_password(password),    
             **validated_data
         )

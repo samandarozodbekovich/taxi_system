@@ -74,6 +74,11 @@ class Driver(models.Model):
         Override save so the PointField (current_location) is updated automatically
         when latitude and longitude change.
         """
+        if not self.driver_code:
+            # However the driver is created (bot registration, admin), they get a login code.
+            # Imported here: generate_driver_code imports this model.
+            from apps.drivers.functions import generate_driver_code
+            self.driver_code = generate_driver_code()
         if self.current_latitude and self.current_longitude:
             self.current_location = Point(
                 float(self.current_longitude), 

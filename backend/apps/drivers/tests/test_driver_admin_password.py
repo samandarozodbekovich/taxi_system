@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
 from django.test import TestCase, override_settings
 
+from apps.drivers.models import Driver
+
 from .constants import LOCMEM_CACHE
 from .functions import make_driver
 
@@ -53,3 +55,31 @@ class DriverAdminPasswordTests(TestCase):
         self.driver.refresh_from_db()
         self.assertEqual(self.driver.password_hash, old_hash)
         self.assertEqual(self.driver.token_version, 0)
+
+    def test_drivers_added_in_admin_get_a_login_code(self):
+        # driver_code is read-only in the admin; before, every added driver got "" and the
+        # second one failed on the unique constraint
+        for n in (1, 2):
+            response = self.client.post("/api/admin/drivers/driver/add/", self.form_data(
+                full_name=f"Admin Driver {n}", phone_number=f"+99890000000{n}",
+                car_number=f"01B00{n}AA", new_password="secret123",
+            ))
+            self.assertEqual(response.status_code, 302)
+
+        added = Driver.objects.filter(full_name__startswith="Admin Driver")
+        codes = {d.driver_code for d in added}
+        self.assertEqual(len(codes), 2)
+        self.assertTrue(all(code.startswith("DRV-") for code in codes))
+        # The new driver can log in with the code and the password set in the admin
+        response = self.client.post(
+            "/api/drivers/login/", {"driver_code": added[0].driver_code, "password": "secret123"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_new_driver_requires_a_password(self):
+        response = self.client.post("/api/admin/drivers/driver/add/", self.form_data(
+            phone_number="+998900000009", car_number="01B009AA",
+        ))
+        self.assertEqual(response.status_code, 200)  # form shown again with the error
+        self.assertFalse(Driver.objects.filter(phone_number="+998900000009").exists())
