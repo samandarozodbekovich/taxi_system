@@ -35,7 +35,9 @@ class Driver(models.Model):
     
     # GeoDjango PointField (for fast distance calculations)
     # SRID 4326 - standard GPS coordinates (WGS84)
-    current_location = gis_models.PointField(null=True, blank=True, srid=4326)
+    # geography: distances are in metres on the sphere, and the GiST index serves
+    # "drivers within N km" (ST_DWithin) - the dispatch search
+    current_location = gis_models.PointField(null=True, blank=True, srid=4326, geography=True)
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='OFFLINE', db_index=True)
     is_blocked = models.BooleanField(default=False)

@@ -25,7 +25,8 @@ def dispatch_order_to_drivers(order, radius_km=WAVE_RADII_KM[0]):
     drivers = list(
         Driver.objects.filter(status="ONLINE", is_blocked=False, is_approved=True, wallet_record__balance__gte=MIN_BALANCE_TO_ACCEPT_ORDERS)
         .exclude(id__in=offered_driver_ids)
-        .filter(current_location__distance_lte=(order.pickup_location, D(km=radius_km)))
+        # dwithin uses the spatial index; distance_lte computes the distance to every driver
+        .filter(current_location__dwithin=(order.pickup_location, D(km=radius_km)))
         .annotate(air_distance=Distance('current_location', order.pickup_location))
         .order_by('air_distance')[:MAX_DRIVERS]
     )
