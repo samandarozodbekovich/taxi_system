@@ -894,12 +894,8 @@
         // Browsers can't add headers to a WebSocket — the login token goes in the query string
         var socket = new WebSocket(protocol + '://' + window.location.host + '/ws/order/' + orderId +
             '/?token=' + encodeURIComponent(driverData.token));
+        // On connect the server first sends the order's current state (catches up on missed events)
         ws = socket;
-
-        socket.onopen = function() {
-            // Events sent while we were disconnected are lost — re-check the order once
-            syncActiveOrder(orderId);
-        };
 
         socket.onmessage = function(e) {
             var payload = JSON.parse(e.data).order_data;
@@ -908,7 +904,8 @@
 
             if (payload.status === 'CANCELED') {
                 clearActiveOrder();
-                alert('❌ The client canceled the order' + (payload.cancel_reason ? ': ' + payload.cancel_reason : '.'));
+                var who = payload.cancel_by === 'OPERATOR' ? 'The operator' : 'The client';
+                alert('❌ ' + who + ' canceled the order' + (payload.cancel_reason ? ': ' + payload.cancel_reason : '.'));
             } else if (payload.status === 'COMPLETED' || payload.status === 'SEARCHING') {
                 // Finished or dropped on another device / by an operator
                 clearActiveOrder();
@@ -920,8 +917,11 @@
         socket.onclose = function() {
             if (ws !== socket) return;   // closed on purpose or replaced
             ws = null;
-            // Connection dropped mid-trip (network, server restart) — reconnect
-            setTimeout(function() {
+            // Connection dropped mid-trip (network, server restart), or the server refused it
+            // because the order is no longer ours — check the order, then reconnect if it's still active
+            setTimeout(async function() {
+                if (String(orderId) !== String(currentOrderId) || ws !== null) return;
+                await syncActiveOrder(orderId);
                 if (String(orderId) === String(currentOrderId) && ws === null) connectOrderSocket(orderId);
             }, WS_RECONNECT_MS);
         };

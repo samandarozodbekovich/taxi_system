@@ -978,11 +978,27 @@
         }
     }
 
+    // The open order socket; reconnects with a growing delay while the order is active
+    var orderSocket = null;
+    var socketRetryMs = 1000;
+    var SOCKET_RETRY_MAX_MS = 30000;
+
     function connectToSocket(orderId) {
+        if (orderSocket) {
+            var old = orderSocket;
+            orderSocket = null;   // its onclose sees it was replaced and doesn't reconnect
+            old.close();
+        }
         var protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
         // Browsers can't add headers to a WebSocket — initData goes in the query string,
         // and the server checks that this is the order owner
         var ws = new WebSocket(protocol + '://' + window.location.host + '/ws/order/' + orderId + '/?tma=' + encodeURIComponent(getInitData()));
+        orderSocket = ws;
+
+        // On connect the server first sends the current state, so missed events are caught up
+        ws.onopen = function() {
+            socketRetryMs = 1000;
+        };
 
         // Do not call updateButtonState() inside ws.onmessage
         ws.onmessage = function(e) {
@@ -1073,7 +1089,15 @@
         };
 
         ws.onclose = function() {
-            console.warn('WebSocket closed!');
+            if (orderSocket !== ws) return;   // replaced by a newer socket
+            orderSocket = null;
+            // Finished orders (COMPLETED / CANCELED / NO_DRIVER) clear currentOrderId — then stop
+            if (String(currentOrderId) !== String(orderId)) return;
+            console.warn('WebSocket closed, reconnecting in ' + socketRetryMs + ' ms');
+            setTimeout(function() {
+                if (String(currentOrderId) === String(orderId) && orderSocket === null) connectToSocket(orderId);
+            }, socketRetryMs);
+            socketRetryMs = Math.min(socketRetryMs * 2, SOCKET_RETRY_MAX_MS);
         };
     }
 

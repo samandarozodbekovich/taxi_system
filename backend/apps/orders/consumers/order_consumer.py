@@ -4,7 +4,7 @@ from urllib.parse import parse_qs
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-from apps.orders.functions import is_order_participant
+from apps.orders.functions import is_order_participant, order_snapshot
 
 
 class OrderConsumer(AsyncWebsocketConsumer):
@@ -18,9 +18,9 @@ class OrderConsumer(AsyncWebsocketConsumer):
         self.order_group_name = f'order_{self.order_id}'
 
         params = parse_qs(self.scope.get('query_string', b'').decode())
-        allowed = await database_sync_to_async(is_order_participant)(
-            self.order_id, params.get('tma', [None])[0], params.get('token', [None])[0]
-        )
+        self.init_data = params.get('tma', [None])[0]
+        self.driver_token = None if self.init_data else params.get('token', [None])[0]
+        allowed = await database_sync_to_async(is_order_participant)(self.order_id, self.init_data, self.driver_token)
         if not allowed:
             # close() before accept() rejects the handshake with 403
             await self.close()
@@ -29,8 +29,22 @@ class OrderConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(self.order_group_name, self.channel_name)
         await self.accept()
 
+        # Events sent while the socket was down are lost - start from the current state
+        snapshot = await database_sync_to_async(order_snapshot)(self.order_id)
+        if snapshot:
+            await self.send(text_data=json.dumps({'order_data': snapshot}))
+
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.order_group_name, self.channel_name)
 
     async def order_update(self, event):
         await self.send(text_data=json.dumps({'order_data': event['data']}))
+
+        # A driver who is no longer assigned (dropped the order, client canceled) has just
+        # got the event that says so - after that they must not see this order any more
+        if self.driver_token and 'status' in event['data']:
+            still_assigned = await database_sync_to_async(is_order_participant)(
+                self.order_id, None, self.driver_token
+            )
+            if not still_assigned:
+                await self.close()

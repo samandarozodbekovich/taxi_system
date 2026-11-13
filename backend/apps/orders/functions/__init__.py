@@ -21,6 +21,7 @@ from .notify_driver_location import notify_driver_location
 from .notify_order_update import notify_order_update
 from .offer_timeout_seconds import offer_timeout_seconds
 from .order_number_for import order_number_for
+from .order_snapshot import order_snapshot
 from .reject_by_driver import reject_by_driver
 from .schedule_dispatch import schedule_dispatch
 from .schedule_search_timeout import schedule_search_timeout
