@@ -53,7 +53,7 @@ OSRM_BASE_URL = os.getenv("OSRM_BASE_URL", "")
 
 # Mini App initData signatures are verified with this token (the client bot that opens the Mini App)
 CLIENT_BOT_TOKEN = os.getenv("CLIENT_BOT_TOKEN")
-# Shared secret for client bot -> backend requests (X-Bot-Secret header)
+# Shared secret for bot -> backend requests (X-Bot-Secret header), set in both bots' .env
 BOT_API_SECRET = os.getenv("BOT_API_SECRET", "")
 # Application definition
 
@@ -138,7 +138,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
     ],
     'DEFAULT_THROTTLE_RATES': {
-        # Driver login attempts per IP (the driver bot sends from one IP for all drivers)
+        # Driver login attempts per source: Telegram user for the driver bot, IP for the panel
         'driver_login': '30/min',
     },
     # Number of proxies in front of the server (ngrok/nginx - 1). Without it the IP came from a spoofable X-Forwarded-For.

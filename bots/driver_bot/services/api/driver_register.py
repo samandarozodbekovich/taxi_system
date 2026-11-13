@@ -1,6 +1,6 @@
 import aiohttp
 import logging
-from config import API_BASE_URL
+from config import API_BASE_URL, BOT_API_SECRET
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +18,12 @@ async def driver_register(full_name, phone_number, car_model,
         "telegram_id": telegram_id   # passed in here
     }
 
+    # Only the bot may register drivers (it vouches for telegram_id)
+    headers = {"X-Bot-Secret": BOT_API_SECRET}
+
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload) as response:
+            async with session.post(url, json=payload, headers=headers) as response:
                 data = await response.json()
                 if response.status == 201:
                     return {

@@ -1,13 +1,15 @@
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
+from ..permissions import IsDriverBot
 from ..serializers import DriverRegisterSerializer
 
 class DriverRegisterView(APIView):
     authentication_classes = []
-    permission_classes = [AllowAny]
+    # Only the driver bot registers drivers: it takes telegram_id from the Telegram update,
+    # so nobody can register with someone else's Telegram id (it receives the order messages)
+    permission_classes = [IsDriverBot]
 
     def post(self, request):
 
