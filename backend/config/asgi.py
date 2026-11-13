@@ -1,13 +1,18 @@
 import os
 from django.core.asgi import get_asgi_application
-from channels.routing import ProtocolTypeRouter, URLRouter
-from channels.auth import AuthMiddlewareStack
-from apps.orders.routing import websocket_urlpatterns
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
+# Load Django (apps registry) before importing anything that touches models,
+# otherwise daphne fails with AppRegistryNotReady
+django_asgi_app = get_asgi_application()
+
+from channels.routing import ProtocolTypeRouter, URLRouter  # noqa: E402
+from channels.auth import AuthMiddlewareStack  # noqa: E402
+from apps.orders.routing import websocket_urlpatterns  # noqa: E402
+
 application = ProtocolTypeRouter({
-    "http": get_asgi_application(),
+    "http": django_asgi_app,
     "websocket": AuthMiddlewareStack(
         URLRouter(
             websocket_urlpatterns
